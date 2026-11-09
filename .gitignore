@@ -4,6 +4,8 @@
 *.exe
 *.msi
 *.log
+# scripts/check-updates.ps1 的更新日志，只保留在本地
+update-log.txt
 .DS_Store
 Thumbs.db
 .vscode/

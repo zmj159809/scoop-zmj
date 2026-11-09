@@ -1,0 +1,33 @@
+{
+    "version": "1.5.0",
+    "description": "Native Bash-compatible shell for Windows (Git Bash alternative), with bundled Unix commands and git",
+    "homepage": "https://github.com/unixwin/niubash",
+    "license": "MIT",
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/unixwin/niubash/releases/download/v1.5.0/niubash-v1.5.0-win-x64.tar.gz",
+            "hash": "da28cdc4e2e87f777ee0eae71386276f9c6a0ed135c1e2baad943acd8d349b87",
+            "extract_dir": "niubash-v1.5.0-win-x64"
+        },
+        "arm64": {
+            "url": "https://github.com/unixwin/niubash/releases/download/v1.5.0/niubash-v1.5.0-win-arm64.tar.gz",
+            "hash": "55c55c1cb1b2a08cc6866259e3a6208256197b083715f2995c6dbccd549fd65f",
+            "extract_dir": "niubash-v1.5.0-win-arm64"
+        }
+    },
+    "bin": "niu.exe",
+    "shortcuts": [
+        [
+            "niu.exe",
+            "Niubash"
+        ]
+    ],
+    "notes": [
+        "运行 niu 启动交互式 Bash 环境，配置文件位于用户目录的 ~/.niubashrc。",
+        "本清单只把 niu.exe 加入 PATH，未把包内 winuxcmd 的 Unix 命令加入 PATH，避免与 Git Bash 等工具冲突。",
+        "上游安装包尚未代码签名，首次运行可能出现 SmartScreen 提示。"
+    ],
+    "checkver": {
+        "github": "https://github.com/unixwin/niubash"
+    }
+}
