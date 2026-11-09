@@ -1,0 +1,9 @@
+# Local downloads and temporary files
+*.zip
+*.7z
+*.exe
+*.msi
+*.log
+.DS_Store
+Thumbs.db
+.vscode/

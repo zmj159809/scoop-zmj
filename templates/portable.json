@@ -1,0 +1,15 @@
+{
+    "version": "1.0.0",
+    "description": "REPLACE_ME: 软件的简短介绍",
+    "homepage": "https://example.com/REPLACE_ME",
+    "license": "REPLACE_ME",
+    "url": "https://example.com/REPLACE_ME/app-1.0.0-win64.zip",
+    "hash": "REPLACE_ME_SHA256",
+    "bin": "app.exe",
+    "shortcuts": [
+        [
+            "app.exe",
+            "My App"
+        ]
+    ]
+}
