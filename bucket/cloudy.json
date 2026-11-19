@@ -1,0 +1,31 @@
+{
+    "version": "1.3.2",
+    "description": "Third-party NetEase Cloud Music desktop client with a native Go UI (no webview)",
+    "homepage": "https://github.com/nya-owo/cloudy",
+    "license": "AGPL-3.0",
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/nya-owo/cloudy/releases/download/v1.3.2/cloudy-1.3.2-windows-amd64.tar.gz",
+            "hash": "e838ee9f3f433986bb0147382e3a46d2293462c8eacc86ece15826420ea60a2e"
+        },
+        "arm64": {
+            "url": "https://github.com/nya-owo/cloudy/releases/download/v1.3.2/cloudy-1.3.2-windows-arm64.tar.gz",
+            "hash": "6f64734e3de6b544425f5a25ce4c944baaa526fe6739401b4bd821b391897d6d"
+        }
+    },
+    "bin": "Cloudy.exe",
+    "shortcuts": [
+        [
+            "Cloudy.exe",
+            "Cloudy"
+        ]
+    ],
+    "notes": [
+        "首次启动可能出现 SmartScreen 提示（上游未做代码签名），选「更多信息 → 仍要运行」。",
+        "Cloudy 自带应用内更新，会自动把文件替换成新版本，绕过 Scoop 的版本管理；建议在 设置 → 关于 里关闭自动更新，统一用 scoop update cloudy 升级。",
+        "登录状态、缓存和听歌数据保存在用户配置目录（%APPDATA%）下，卸载不会删除。"
+    ],
+    "checkver": {
+        "github": "https://github.com/nya-owo/cloudy"
+    }
+}

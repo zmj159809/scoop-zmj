@@ -17,6 +17,7 @@ scoop install my/niubash
 
 ```text
 bucket/                         正式软件清单，每个软件一个 JSON
+  cloudy.json                   Cloudy（网易云音乐第三方客户端）1.3.2
   niubash.json                  niubash（Bash for Windows）1.5.0
 templates/portable.json         便携版 ZIP 模板（不会被 Scoop 当成软件）
 scripts/validate.ps1            清单基础校验，本地和 GitHub Actions 都用它
@@ -301,6 +302,7 @@ scoop update niubash  # 升级已安装的软件
 
 | 清单 | 软件 | 版本 | 架构 | 说明 |
 | --- | --- | --- | --- | --- |
+| [`bucket/cloudy.json`](bucket/cloudy.json) | [cloudy](https://github.com/nya-owo/cloudy) | 1.3.2 | 64bit / arm64 | 网易云音乐第三方客户端，Go 原生界面，自带应用内更新 |
 | [`bucket/niubash.json`](bucket/niubash.json) | [niubash](https://github.com/unixwin/niubash) | 1.5.0 | 64bit / arm64 | 原生 Windows Bash 兼容 shell，命令名 `niu` |
 
 ### niubash
@@ -344,6 +346,45 @@ scoop update niubash
 **为什么用 tar.gz**
 
 清单选用上游的 `win-x64.tar.gz` / `win-arm64.tar.gz`：这两种包在解压时会还原 git、awk 载荷的硬链接，体积最小（x64 约 31 MB，zip 版 57 MB）。压缩包内有一层带版本号的目录，所以用 `extract_dir` 指定它，`bin` 才能找到根目录下的 `niu.exe`。
+
+### cloudy
+
+[Cloudy](https://github.com/nya-owo/cloudy)（旧名 Cloud-nya）是第三方网易云音乐桌面客户端，用 Go 和 MyGo 写原生界面，不套 WebView，启动快、占用小。
+
+**安装**
+
+```powershell
+scoop update
+scoop install my/cloudy
+```
+
+装完从开始菜单打开「Cloudy」，或在终端运行 `cloudy`。
+
+**使用**
+
+- 登录：打开客户端扫码登录网易云账号，登录状态保存在系统凭据里。
+- 命令行：清单把 `Cloudy.exe` 加入 PATH，命令名 `cloudy`。它是 GUI 程序，在终端运行不会输出内容，只是把窗口叫起来。
+- 本地音乐：设置 → 下载与缓存 → 本地音乐，添加存放 MP3 / FLAC 的文件夹；也可以把文件或文件夹直接拖进窗口。
+
+**注意事项**
+
+- 上游未做代码签名，首次运行 SmartScreen 会提示，选「更多信息 → 仍要运行」。
+- **自带应用内更新**：Cloudy 会自己检查 GitHub（连不上时切镜像）并静默替换文件，绕过 Scoop 的版本记录。装了 Scoop 版建议在设置里关掉自动更新，统一用 `scoop update cloudy` 升级，否则 `scoop list` 显示的版本会和实际文件对不上。
+- 只有 Windows 版本，分 x64 和 ARM64 两种；ARM64 设备会装 `arm64` 那个包。
+- 登录状态、缓存和听歌数据在 `%APPDATA%` 下，`scoop uninstall` 不会删除。
+
+**升级**
+
+```powershell
+scoop update
+scoop update cloudy
+```
+
+清单没有配 `autoupdate`，和 niubash 一样靠 `scripts/check-updates.ps1`。上游资产名稳定（`cloudy-<版本>-windows-amd64.tar.gz`），但发布里没有独立的校验文件，脚本遇到这种清单会下载资产自己算哈希。
+
+**为什么用 tar.gz**
+
+发布里的 `cloudy-<版本>-windows-<架构>.tar.gz` 是 MyGo 的更新包，内容是「装好之后的文件」，平铺在压缩包根目录（`Cloudy.exe` 加资源目录），解压即可运行，所以清单不需要 `extract_dir`，`bin` 直接写 `Cloudy.exe`。安装器 `cloudy-setup-*.exe` 会装到 `%LOCALAPPDATA%\Programs` 并写注册表，不适合交给 Scoop 管理。
 
 新增软件时照这个结构补一节（复制后改内容即可）：
 
