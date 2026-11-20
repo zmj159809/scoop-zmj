@@ -29,5 +29,17 @@
     ],
     "checkver": {
         "github": "https://github.com/unixwin/niubash"
+    },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/unixwin/niubash/releases/download/v$version/niubash-v$version-win-x64.tar.gz",
+                "extract_dir": "niubash-v$version-win-x64"
+            },
+            "arm64": {
+                "url": "https://github.com/unixwin/niubash/releases/download/v$version/niubash-v$version-win-arm64.tar.gz",
+                "extract_dir": "niubash-v$version-win-arm64"
+            }
+        }
     }
 }

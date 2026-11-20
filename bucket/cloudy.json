@@ -27,5 +27,15 @@
     ],
     "checkver": {
         "github": "https://github.com/nya-owo/cloudy"
+    },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/nya-owo/cloudy/releases/download/v$version/cloudy-$version-windows-amd64.tar.gz"
+            },
+            "arm64": {
+                "url": "https://github.com/nya-owo/cloudy/releases/download/v$version/cloudy-$version-windows-arm64.tar.gz"
+            }
+        }
     }
 }

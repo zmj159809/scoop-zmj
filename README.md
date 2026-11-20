@@ -17,14 +17,15 @@ scoop install my/niubash
 
 ```text
 bucket/                         正式软件清单，每个软件一个 JSON
-  cloudy.json                   Cloudy（网易云音乐第三方客户端）1.3.2
-  niubash.json                  niubash（Bash for Windows）1.5.0
+  cloudy.json                   Cloudy（网易云音乐第三方客户端）
+  niubash.json                  niubash（Bash for Windows）
 templates/portable.json         便携版 ZIP 模板（不会被 Scoop 当成软件）
 scripts/validate.ps1            清单基础校验，本地和 GitHub Actions 都用它
 scripts/new-manifest.ps1        给一个 GitHub 地址，自动生成清单
 scripts/check-updates.ps1       检查上游新版本，按需改写清单并写日志
 update-log.txt                  更新日志（已在 .gitignore 中忽略，不上传）
 .github/workflows/validate.yml  GitHub Actions：推送时自动跑校验
+.github/workflows/excavator.yml GitHub Actions：定时检查、更新并推送清单
 README.md                       本文档
 ```
 
@@ -33,7 +34,7 @@ README.md                       本文档
 | `bucket/` | **必须**叫这个名字，Scoop 只扫描这一层。文件名即软件名：`bucket/foo.json` → `scoop install my/foo` |
 | `templates/` | 手工写清单时的起点。Scoop 不读这里，放着不会变成可安装软件 |
 | `scripts/` | 辅助脚本，不参与安装流程 |
-| `.github/workflows/` | 只做校验，不会自动改版本或推送提交 |
+| `.github/workflows/` | 推送时校验清单；Excavator 每 4 小时检查新版本并自动提交、推送 |
 
 命名约定：清单文件名只用小写字母、数字和短横线。
 
@@ -49,7 +50,7 @@ README.md                       本文档
 | 分支 | `main` |
 | 可见性 | 推荐公开；私有仓库需要本机 Git 已配置 GitHub 凭据，`scoop update` 时才不会卡住 |
 | 收录策略 | 只放自己确实在用的软件；便携版优先，安装器类按实际安装行为单独写 |
-| 自动更新 | 靠 `scripts/check-updates.ps1` 手动触发；没有配置 GitHub Actions 自动改版本 |
+| 自动更新 | `ScoopInstaller/GithubActions` 每 4 小时检查带 `checkver` 和 `autoupdate` 的清单，自动提交到当前分支；本地脚本仍可手动使用 |
 
 订阅端的工作方式：
 
@@ -295,15 +296,48 @@ scoop update          # 同步 bucket
 scoop update niubash  # 升级已安装的软件
 ```
 
-想接入 Scoop 原生的 `autoupdate`（无需手动跑脚本），需要软件发布方提供稳定的资产命名和独立的 `.sha256` 校验文件。
+已配置的清单会由下面的 Excavator 自动维护，本地脚本用于需要立刻更新或排查问题时。自动维护仅更新仓库清单，电脑上已安装的软件仍需运行上面的 `scoop update <软件名>`。
+
+### 6. GitHub Actions 自动维护
+
+工作流使用官方 [ScoopInstaller/GithubActions](https://github.com/ScoopInstaller/GithubActions)，配置见 [excavator.yml](.github/workflows/excavator.yml)。
+
+- **定时运行**：每 4 小时一次，北京时间约 00:20、04:20、08:20、12:20、16:20、20:20；GitHub 可能延迟执行。
+- **手动运行**：仓库 → Actions → Excavator → Run workflow → 选择 `main` → Run workflow。
+- **更新内容**：按 `checkver` 查询上游正式版，按 `autoupdate` 生成下载地址和解压目录，取得 SHA256，自动提交并推送到运行分支。没有新版本时不会提交。
+- **权限**：使用 GitHub 自动提供的 `GITHUB_TOKEN` 和工作流声明的 `contents: write`，无需上传 SSH 私钥或另建 PAT。仓库或组织策略仍须允许 Actions 写入；分支保护若禁止机器人直接推送，需要调整规则。
+- **校验**：自动更新前后都运行基础校验。官方 Action 内部已经执行提交和推送，末尾校验负责报告结果，不能拦截已经推送的提交；它也不代替软件安装测试。
+
+首次上传后，确保仓库 Settings → Actions → General 允许运行该 Action。运行失败可在 Actions → Excavator → 对应任务中查看日志。`THROW_ERROR=1` 让上游检查错误显示为失败，便于发现资产更名或下载问题。
+
+**以后新增软件如何加入自动维护**
+
+生成脚本目前只生成 `checkver`，还需按真实发布规则补上 `autoupdate`。以单架构 ZIP 为例：
+
+```json
+"checkver": {
+    "github": "https://github.com/owner/repo"
+},
+"autoupdate": {
+    "url": "https://github.com/owner/repo/releases/download/v$version/app-$version-win64.zip"
+}
+```
+
+多架构清单把 URL 放到 `autoupdate.architecture.64bit` / `arm64` 下，参考现有清单。带版本号的 `extract_dir` 也要在同一架构下提供 `$version` 模板。需要稳定的 tag、资产命名和目录规则；上游改变规则时需人工修正。
+
+**不要求独立的 `.sha256` 文件**：Scoop 优先读取 GitHub Release 的 asset digest；没有可用 digest 时会下载安装包计算 SHA256。不要把当前版本的固定哈希写到 `autoupdate` 中。
+
+自动提交由 `GITHUB_TOKEN` 推送，不会再次触发普通 push 工作流，因此 Excavator 自身包含更新后的基础校验。定时任务只在默认分支运行；公开仓库长期无活动时 GitHub 可能暂停定时任务，可到 Actions 页面重新启用。
 
 ---
 ## 已收录软件
 
-| 清单 | 软件 | 版本 | 架构 | 说明 |
-| --- | --- | --- | --- | --- |
-| [`bucket/cloudy.json`](bucket/cloudy.json) | [cloudy](https://github.com/nya-owo/cloudy) | 1.3.2 | 64bit / arm64 | 网易云音乐第三方客户端，Go 原生界面，自带应用内更新 |
-| [`bucket/niubash.json`](bucket/niubash.json) | [niubash](https://github.com/unixwin/niubash) | 1.5.0 | 64bit / arm64 | 原生 Windows Bash 兼容 shell，命令名 `niu` |
+版本以链接指向的清单中 `version` 字段为准，避免自动更新后文档里的版本过期。
+
+| 清单 | 软件 | 架构 | 说明 |
+| --- | --- | --- | --- |
+| [`bucket/cloudy.json`](bucket/cloudy.json) | [cloudy](https://github.com/nya-owo/cloudy) | 64bit / arm64 | 网易云音乐第三方客户端，Go 原生界面，自带应用内更新 |
+| [`bucket/niubash.json`](bucket/niubash.json) | [niubash](https://github.com/unixwin/niubash) | 64bit / arm64 | 原生 Windows Bash 兼容 shell，命令名 `niu` |
 
 ### niubash
 
@@ -341,7 +375,7 @@ scoop update
 scoop update niubash
 ```
 
-上游只为安装器 `setup.exe` 提供 `.sha256` 文件，tar.gz 没有独立校验文件，因此清单没有配置 `autoupdate`，需手动或跑 `scripts/check-updates.ps1` 升级。手工改的话要保持一致的有四处：`version`、两个架构的 `url`、两个 `extract_dir`（`niubash-v<版本>-win-x64` / `-win-arm64`）、两个 `hash`。
+已配置 `checkver` 和双架构 `autoupdate`，Excavator 自动更新版本、下载地址、SHA256，以及 `niubash-v<版本>-win-x64` / `-win-arm64` 解压目录。上游即使没有为 tar.gz 提供独立校验文件，Scoop 也能获取 digest 或下载计算哈希。
 
 **为什么用 tar.gz**
 
@@ -380,7 +414,7 @@ scoop update
 scoop update cloudy
 ```
 
-清单没有配 `autoupdate`，和 niubash 一样靠 `scripts/check-updates.ps1`。上游资产名稳定（`cloudy-<版本>-windows-amd64.tar.gz`），但发布里没有独立的校验文件，脚本遇到这种清单会下载资产自己算哈希。
+已配置 `checkver` 和双架构 `autoupdate`，Excavator 按 `cloudy-<版本>-windows-amd64.tar.gz` / `-arm64.tar.gz` 的规则更新清单和哈希。无需在本机手动维护版本；需要立即检查时也可以运行本地更新脚本。
 
 **为什么用 tar.gz**
 
