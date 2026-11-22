@@ -1,18 +1,18 @@
 {
-    "version": "1.5.0",
+    "version": "1.5.1",
     "description": "Native Bash-compatible shell for Windows (Git Bash alternative), with bundled Unix commands and git",
     "homepage": "https://github.com/unixwin/niubash",
     "license": "MIT",
     "architecture": {
         "64bit": {
-            "url": "https://github.com/unixwin/niubash/releases/download/v1.5.0/niubash-v1.5.0-win-x64.tar.gz",
-            "hash": "da28cdc4e2e87f777ee0eae71386276f9c6a0ed135c1e2baad943acd8d349b87",
-            "extract_dir": "niubash-v1.5.0-win-x64"
+            "url": "https://github.com/unixwin/niubash/releases/download/v1.5.1/niubash-v1.5.1-win-x64.tar.gz",
+            "hash": "d3f5141172585cf7a2e31d21f4ad61d0514b74292ce499eef86c0e3d178d01a8",
+            "extract_dir": "niubash-v1.5.1-win-x64"
         },
         "arm64": {
-            "url": "https://github.com/unixwin/niubash/releases/download/v1.5.0/niubash-v1.5.0-win-arm64.tar.gz",
-            "hash": "55c55c1cb1b2a08cc6866259e3a6208256197b083715f2995c6dbccd549fd65f",
-            "extract_dir": "niubash-v1.5.0-win-arm64"
+            "url": "https://github.com/unixwin/niubash/releases/download/v1.5.1/niubash-v1.5.1-win-arm64.tar.gz",
+            "hash": "50f2b32cf74983c2eaa0c591196503db3cc00e92c0aac8b63ab60cf6a560123c",
+            "extract_dir": "niubash-v1.5.1-win-arm64"
         }
     },
     "bin": "niu.exe",
