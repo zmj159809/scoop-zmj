@@ -27,6 +27,12 @@
         "本清单只把 niu.exe 加入 PATH，未把包内 winuxcmd 的 Unix 命令加入 PATH，避免与 Git Bash 等工具冲突。",
         "上游安装包尚未代码签名，首次运行可能出现 SmartScreen 提示。"
     ],
+    "post_uninstall": [
+        "if (-not ((Get-PSCallStack).ScriptName -match '[\\\\/]scoop-uninstall\\.ps1$')) { return }",
+        "Write-Warning 'niubash 的用户配置和命令历史可能仍在磁盘上。确认不再需要后，可先备份再手动清理。'",
+        "Write-Host '  检查 niubash 主目录下的 .niubashrc、.niubash_history 和 .niubash 目录（Windows 默认主目录通常为 %USERPROFILE%）'",
+        "Write-Host '  如设置过 HISTFILE，请另外检查自定义历史文件。'"
+    ],
     "checkver": {
         "github": "https://github.com/unixwin/niubash"
     },

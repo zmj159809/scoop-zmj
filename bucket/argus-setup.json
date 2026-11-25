@@ -46,6 +46,12 @@
         "安装版与便携版共用用户配置和历史记录，无需配置 Scoop persist。请先退出 Argus 再升级或卸载。",
         "Scoop 升级会运行官方卸载程序后再安装新版本。建议关闭 Argus 应用内自动更新，统一用 Scoop 升级。"
     ],
+    "post_uninstall": [
+        "if (-not ((Get-PSCallStack).ScriptName -match '[\\\\/]scoop-uninstall\\.ps1$')) { return }",
+        "Write-Warning 'Argus 会保留用户设置、日志和历史记录。两个版本共用数据，请在两个版本都不再使用时备份后手动清理。'",
+        "Write-Host '  检查 %APPDATA%\\dev.argus.taskmanager 和 %LOCALAPPDATA%\\dev.argus.taskmanager'",
+        "Write-Host '  如改过历史记录位置，请另外检查自定义目录。'"
+    ],
     "checkver": {
         "github": "https://github.com/Ray-lea/Argus"
     },

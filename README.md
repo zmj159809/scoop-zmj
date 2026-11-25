@@ -343,6 +343,18 @@ scoop update niubash  # 升级已安装的软件
 | [`bucket/cloudy.json`](bucket/cloudy.json) | [cloudy](https://github.com/nya-owo/cloudy) | 64bit / arm64 | 网易云音乐第三方客户端，Go 原生界面，自带应用内更新 |
 | [`bucket/niubash.json`](bucket/niubash.json) | [niubash](https://github.com/unixwin/niubash) | 64bit / arm64 | 原生 Windows Bash 兼容 shell，命令名 `niu` |
 
+### 卸载后保留的数据
+
+运行 `scoop uninstall <包名>` 时，清单会提示检查下列位置，由你决定是否备份和手动清理。路径指向 Windows 用户目录，通常在 C 盘。`--purge` 只清理 Scoop 管理的持久化数据，这些应用自行保存的数据仍会保留。
+
+| 包名 | 卸载后检查的位置 |
+| --- | --- |
+| `argus` / `argus-setup` | `%APPDATA%\dev.argus.taskmanager` 和 `%LOCALAPPDATA%\dev.argus.taskmanager`，另检查自定义历史记录目录。两个版本共用数据，只在两个版本都不再使用时清理。 |
+| `cloudy` | `%APPDATA%\Cloudy`（设置和播放数据）、`%LOCALAPPDATA%\Cloudy`（默认缓存）。如改过缓存或下载位置，也检查自定义目录，保留仍需使用的下载歌曲。 |
+| `niubash` | niubash 主目录（通常为 `%USERPROFILE%`）中的 `.niubashrc`、`.niubash_history` 和 `.niubash`。如设置过 `HISTFILE`，也检查自定义历史文件。 |
+
+Scoop 从安装时保存的清单读取卸载脚本。已用旧清单安装的软件，在下次升级或重新安装后才会带上提醒。在此之前卸载，可以直接按上表检查。
+
 ### Argus
 
 [Argus](https://github.com/Ray-lea/Argus) 是原生 Windows 任务管理器，提供进程、性能、历史记录、文件锁、网络连接、服务和启动项管理，并可在托盘、桌面或任务栏显示监控信息。
@@ -467,7 +479,7 @@ scoop install my/cloudy
 - 上游未做代码签名，首次运行 SmartScreen 会提示，选「更多信息 → 仍要运行」。
 - **自带应用内更新**：Cloudy 会自己检查 GitHub（连不上时切镜像）并静默替换文件，绕过 Scoop 的版本记录。装了 Scoop 版建议在设置里关掉自动更新，统一用 `scoop update cloudy` 升级，否则 `scoop list` 显示的版本会和实际文件对不上。
 - 只有 Windows 版本，分 x64 和 ARM64 两种；ARM64 设备会装 `arm64` 那个包。
-- 登录状态、缓存和听歌数据在 `%APPDATA%` 下，`scoop uninstall` 不会删除。
+- 卸载会保留设置、播放数据和缓存。需要清除系统保存的登录凭据时，请在卸载前从 Cloudy 退出账号。数据路径见上方卸载说明。
 
 **升级**
 

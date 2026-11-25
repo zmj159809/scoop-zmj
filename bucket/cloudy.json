@@ -23,7 +23,13 @@
     "notes": [
         "首次启动可能出现 SmartScreen 提示（上游未做代码签名），选「更多信息 → 仍要运行」。",
         "Cloudy 自带应用内更新，会自动把文件替换成新版本，绕过 Scoop 的版本管理；建议在 设置 → 关于 里关闭自动更新，统一用 scoop update cloudy 升级。",
-        "登录状态、缓存和听歌数据保存在用户配置目录（%APPDATA%）下，卸载不会删除。"
+        "用户设置和播放数据默认在 %APPDATA%\\Cloudy，缓存默认在 %LOCALAPPDATA%\\Cloudy，卸载后保留。"
+    ],
+    "post_uninstall": [
+        "if (-not ((Get-PSCallStack).ScriptName -match '[\\\\/]scoop-uninstall\\.ps1$')) { return }",
+        "Write-Warning 'Cloudy 的用户设置、播放数据和缓存可能仍在磁盘上。确认不再需要后，可先备份再手动清理。'",
+        "Write-Host '  检查 %APPDATA%\\Cloudy 和 %LOCALAPPDATA%\\Cloudy'",
+        "Write-Host '  如果改过缓存或音乐下载位置，请另外检查自定义目录。需要清除登录凭据时，请先在 Cloudy 内退出账号。'"
     ],
     "checkver": {
         "github": "https://github.com/nya-owo/cloudy"

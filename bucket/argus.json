@@ -21,6 +21,12 @@
         "需要 Windows 10 22H2（build 19045）或 Windows 11，并支持 DirectX 11 的显卡。上游当前未发布原生 ARM64 包；ARM64 Windows 上的运行依赖 x64 模拟支持。",
         "如在 Argus 中手动启用了特权服务、PawnIO 或任务管理器替换，卸载前请先在 Argus 设置中关闭并移除这些功能；升级后如特权服务副本未同步，请在 设置 → 权限 → 特权服务 中更新服务。"
     ],
+    "post_uninstall": [
+        "if (-not ((Get-PSCallStack).ScriptName -match '[\\\\/]scoop-uninstall\\.ps1$')) { return }",
+        "Write-Warning 'Argus 会保留用户设置、日志和历史记录。两个版本共用数据，请在两个版本都不再使用时备份后手动清理。'",
+        "Write-Host '  检查 %APPDATA%\\dev.argus.taskmanager 和 %LOCALAPPDATA%\\dev.argus.taskmanager'",
+        "Write-Host '  如改过历史记录位置，请另外检查自定义目录。'"
+    ],
     "checkver": {
         "github": "https://github.com/Ray-lea/Argus"
     },
