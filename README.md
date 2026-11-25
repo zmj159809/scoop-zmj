@@ -1,252 +1,235 @@
 # 我的 Scoop Bucket
 
-自己维护的 Windows 软件源（Scoop bucket）。仓库推送到 GitHub 后，用 `scoop bucket add` 订阅即可在任意电脑上安装这里收录的软件。
+这是一个个人维护的 Windows 软件源。Scoop 从 Git 仓库读取软件清单，推送清单后即可订阅，无需部署网站。
 
-不需要搭建网站，也不需要 GitHub Pages：Scoop 直接读取仓库里 `bucket/*.json` 这些清单文件。
+- [仓库目录](#仓库目录)
+- [脚本清单与用法](#脚本清单与用法)
+- [Scoop Bucket](#scoop-bucket)
+
+## 仓库目录
+
+| 路径 | 用途 |
+| --- | --- |
+| [`bucket/`](bucket/) | 正式软件清单。文件名去掉 `.json` 后缀就是 Scoop 包名。 |
+| [`templates/portable.json`](templates/portable.json) | 便携版 ZIP 清单模板。 |
+| [`scripts/`](scripts/) | 生成、校验和更新清单的 PowerShell 脚本。 |
+| [`.github/workflows/validate.yml`](.github/workflows/validate.yml) | 在清单、脚本或校验工作流变更时执行基础校验。 |
+| [`.github/workflows/excavator.yml`](.github/workflows/excavator.yml) | 定期检查上游版本并更新清单。 |
+| [`AGENTS.md`](AGENTS.md) | 仓库维护指引，包含新增软件的文档和卸载提醒要求。 |
+| `update-log.txt` | 本地更新脚本生成的日志，已被 [`.gitignore`](.gitignore) 忽略。 |
+
+新增清单时优先用小写字母、数字和短横线命名。
+
+## 脚本清单与用法
+
+以下命令在仓库根目录运行，需要 PowerShell 7。生成清单和检查更新需要访问 GitHub 及相应的发布资产。
+
+| 脚本 | 用途 | 文件改动 |
+| --- | --- | --- |
+| [`validate.ps1`](scripts/validate.ps1) | 检查清单格式、必要字段、下载地址和哈希格式 | 无 |
+| [`new-manifest.ps1`](scripts/new-manifest.ps1) | 根据 GitHub Release 生成软件清单 | 默认写入 `bucket/` |
+| [`check-updates.ps1`](scripts/check-updates.ps1) | 检查已收录软件的上游版本 | 确认更新后修改清单并追加本地日志 |
+
+### 校验清单
 
 ```powershell
-scoop bucket add my https://github.com/YOUR_GITHUB_NAME/scoop-bucket.git
+pwsh -NoProfile -File ./scripts/validate.ps1
+```
+
+`-BucketPath` 可指定其他清单目录，默认使用仓库的 `bucket/`。脚本检查文件名、JSON 格式、模板占位符、必要字段、支持的架构、HTTP(S) 地址和 SHA256 格式。下载包的实际哈希和软件能否安装运行需要另行验证。GitHub Actions 的 Validate bucket 工作流也运行此脚本。
+
+### 从 GitHub Release 生成清单
+
+```powershell
+pwsh -NoProfile -File ./scripts/new-manifest.ps1 https://github.com/unixwin/niubash -DryRun
+pwsh -NoProfile -File ./scripts/new-manifest.ps1 unixwin/niubash -Version 1.4.2 -DryRun
+```
+
+脚本默认选择最新正式版，按文件名筛选 Windows 发布资产和架构，下载计算 SHA256，并尝试推断 `extract_dir` 和 `bin`。GitHub 仓库可用完整地址或 `owner/repo` 指定。预览无误后去掉 `-DryRun`，脚本会生成清单并运行基础校验。
+
+| 参数 | 用途 |
+| --- | --- |
+| `-RepoUrl` | GitHub 仓库地址，可作为第一个位置参数传入。省略时脚本会询问。 |
+| `-Version` | 指定发布版本，例如 `1.4.2` 或 `v1.4.2`，也会尝试匹配上游带前缀的 tag。 |
+| `-Name` / `-BucketPath` | 指定包名或输出目录，默认取仓库名并写到 `bucket/`。 |
+| `-Bin` / `-ExtractDir` | 手动指定命令入口或包内解压目录。 |
+| `-DryRun` / `-Force` | 分别为只预览和允许覆盖已有清单。 |
+| `-NoHash` | 跳过下载，生成带 `REPLACE_ME` 哈希的草稿，发布前须补齐。 |
+| `-Prerelease` | 允许使用预发布版本。 |
+| `-Token` | 指定 GitHub 令牌，默认读取 `GITHUB_TOKEN`。 |
+
+有多个命令入口候选时可用 `-Bin` 指定。检查 `.7z` 内容需要本机的 7-Zip。MSI 或 EXE 安装器生成的清单需要按实际安装、升级和卸载行为补齐。
+
+### 检查并更新清单
+
+```powershell
+pwsh -NoProfile -File ./scripts/check-updates.ps1 -CheckOnly
+pwsh -NoProfile -File ./scripts/check-updates.ps1
+```
+
+脚本从 `checkver.github` 或 GitHub `homepage` 查找最新正式版，默认逐项询问是否更新。确认后会更新版本、下载链接、哈希及带版本号的解压目录，写入前重新解析 JSON，并在 `update-log.txt` 记录改动。哈希优先使用 GitHub Release 的 asset digest，缺少时下载计算。单个仓库查询失败时会继续检查其余清单。
+
+| 参数 | 用途 |
+| --- | --- |
+| `-CheckOnly` | 只检查新版本。 |
+| `-Yes` | 跳过询问，更新所有发现新版本的清单。 |
+| `-BucketPath` / `-LogPath` | 指定清单目录或日志路径。 |
+| `-Token` | 指定 GitHub 令牌，默认读取 `GITHUB_TOKEN`。 |
+
+GitHub API 限流时，生成和更新脚本会尝试通过 Release 网页或 Atom Feed 查询。需要提高 API 配额时可以设置 `GITHUB_TOKEN`。SSH 密钥用于 Git 操作，API 调用使用令牌。
+
+## Scoop Bucket
+
+### 订阅、安装与更新
+
+准备好 [Scoop](https://scoop.sh/) 和 Git 后，在 PowerShell 中运行以下命令。订阅地址根据当前仓库的 Git `origin` 填写。
+
+```powershell
+scoop bucket add my https://github.com/zmj159809/scoop-zmj.git
+scoop bucket list
 scoop install my/niubash
 ```
 
-> 每收录一个新软件，都在下面的 [已收录软件](#已收录软件) 里补一节使用说明，格式照抄已有条目。
+`my` 是本机别名。换用其他别名时，同时替换安装命令中的 `my/`。私有仓库需先配置可访问仓库的 Git 凭据。
 
----
-
-## 目录说明
-
-```text
-bucket/                         正式软件清单，每个软件一个 JSON
-  argus.json                    Argus（Windows 任务管理器，便携版）
-  argus-setup.json              Argus（官方安装版）
-  cloudy.json                   Cloudy（网易云音乐第三方客户端）
-  niubash.json                  niubash（Bash for Windows）
-templates/portable.json         便携版 ZIP 模板（不会被 Scoop 当成软件）
-scripts/validate.ps1            清单基础校验，本地和 GitHub Actions 都用它
-scripts/new-manifest.ps1        给一个 GitHub 地址，自动生成清单
-scripts/check-updates.ps1       检查上游新版本，按需改写清单并写日志
-update-log.txt                  更新日志（已在 .gitignore 中忽略，不上传）
-.github/workflows/validate.yml  GitHub Actions：推送时自动跑校验
-.github/workflows/excavator.yml GitHub Actions：定时检查、更新并推送清单
-README.md                       本文档
+```powershell
+scoop update          # 同步 Scoop 和各 Bucket
+scoop update niubash  # 更新已安装的 niubash
 ```
 
-| 路径 | 说明 |
-| --- | --- |
-| `bucket/` | **必须**叫这个名字，Scoop 只扫描这一层。文件名即软件名：`bucket/foo.json` → `scoop install my/foo` |
-| `templates/` | 手工写清单时的起点。Scoop 不读这里，放着不会变成可安装软件 |
-| `scripts/` | 辅助脚本，不参与安装流程 |
-| `.github/workflows/` | 推送时校验清单；Excavator 每 4 小时检查新版本并自动提交、推送 |
+### 已收录软件
 
-命名约定：清单文件名只用小写字母、数字和短横线。
+版本以各清单中的 `version` 字段为准。
 
----
-
-## 这个 Bucket 是什么
-
-| 项目 | 说明 |
-| --- | --- |
-| 类型 | 个人自建 bucket（不是官方 main / extras / versions） |
-| 仓库名 | 示例用 `scoop-bucket`，可任意取 |
-| 本地别名 | 示例用 `my`，`scoop bucket add` 时的第一个参数，可任意取 |
-| 分支 | `main` |
-| 可见性 | 推荐公开；私有仓库需要本机 Git 已配置 GitHub 凭据，`scoop update` 时才不会卡住 |
-| 收录策略 | 只放自己确实在用的软件；便携版优先，安装器类按实际安装行为单独写 |
-| 自动更新 | `ScoopInstaller/GithubActions` 每 4 小时检查带 `checkver` 和 `autoupdate` 的清单，自动提交到当前分支；本地脚本仍可手动使用 |
-
-订阅端的工作方式：
-
-1. `scoop bucket add my <仓库地址>` 把仓库克隆到 `~/scoop/buckets/my`；
-2. `scoop update` 会 `git pull` 同步所有 bucket；
-3. `scoop install my/<清单名>` 读取 `bucket/<清单名>.json` 安装。
-
-所以**只要清单文件被推送上去，订阅端 `scoop update` 后就能装到新版本**，无需额外发布步骤。
-
----
-
-## 脚本清单
-
-三个脚本都只依赖 PowerShell 7（`pwsh`），在本项目根目录运行。
-
-| 脚本 | 作用 | 会不会改文件 | 常用命令 |
+| 软件包 | 架构 | 用途 | 清单 |
 | --- | --- | --- | --- |
-| [`scripts/validate.ps1`](scripts/validate.ps1) | 校验清单字段、格式、占位符 | 否 | `pwsh -NoProfile -File .\scripts\validate.ps1` |
-| [`scripts/new-manifest.ps1`](scripts/new-manifest.ps1) | 从 GitHub 仓库生成清单 | 是（写 `bucket/`） | `pwsh -NoProfile -File .\scripts\new-manifest.ps1 <仓库地址>` |
-| [`scripts/check-updates.ps1`](scripts/check-updates.ps1) | 查上游新版本，询问后改写清单 | 是（改清单 + 写日志） | `pwsh -NoProfile -File .\scripts\check-updates.ps1` |
+| [`argus`](#argus) | x64 | Windows 任务管理器，便携版 | [清单](bucket/argus.json) |
+| [`argus-setup`](#argus-setup) | x64 | Windows 任务管理器，官方全用户安装版 | [清单](bucket/argus-setup.json) |
+| [`cloudy`](#cloudy) | x64 / ARM64 | 第三方网易云音乐桌面客户端 | [清单](bucket/cloudy.json) |
+| [`niubash`](#niubash) | x64 / ARM64 | Windows 原生 Bash 兼容 Shell | [清单](bucket/niubash.json) |
 
-### validate.ps1 —— 校验清单
+以下文件残留说明来自现有清单及其卸载脚本。`%APPDATA%`、`%LOCALAPPDATA%` 和 `%USERPROFILE%` 通常在 C 盘，实际位置以当前账户和软件配置为准。`scoop uninstall --purge <包名>` 清理 Scoop 管理的持久化数据。应用自行保存的数据按下列条目检查。当前清单带有卸载提醒，使用旧清单安装的版本可能要在升级或重装后才会显示提醒。
 
-```powershell
-pwsh -NoProfile -File .\scripts\validate.ps1
-```
+#### argus
 
-检查内容：文件名是否为小写、是否残留 `REPLACE_ME`、`version` / `description` / `homepage` / `license` 是否齐全、`architecture` 下每个架构（`32bit` / `64bit` / `arm64`）是否都有 `url` 和 `hash`、`url` 是否为 http(s) 绝对地址、`hash` 是否为 64 位十六进制。
-
-**它不下载文件、不核对远端哈希、不验证所有 Scoop 字段**，也不能代替实际安装测试。提交前请用 `scoop install .\bucket\<名字>.json` 实测一次。
-
-GitHub Actions 在 push 和 pull_request 时自动跑同一个脚本（只监听 `bucket/**` 和 `scripts/**` 的改动）。
-
-### new-manifest.ps1 —— 自动生成清单
-
-不想手工查版本、算哈希时，直接给它一个 GitHub 地址：
+[Argus](https://github.com/Ray-lea/Argus) 可查看进程、性能、历史记录、文件锁、网络连接、服务和启动项，也可在托盘、桌面或任务栏显示监控信息。
 
 ```powershell
-pwsh -NoProfile -File .\scripts\new-manifest.ps1 https://github.com/unixwin/niubash
+scoop install my/argus
+scoop update argus
 ```
 
-**它做了什么**
+从开始菜单打开「Argus」或运行 `argus`。默认用 `Ctrl+Alt+Esc` 显示或隐藏窗口。
 
-1. 解析仓库地址（`https://github.com/owner/repo`、`owner/repo`、带 `.git` 或 `releases` 路径都可以）；
-2. 查询最新正式 Release，拿到版本号、仓库简介和许可证（API 限流时自动改用网页查询）；
-3. 从发布资产里挑出 Windows 平台的安装包，按文件名识别 `64bit` / `arm64` / `32bit`，跳过 macOS、Linux、校验文件和源码包；
-4. 下载选中的包，计算 SHA256，列出压缩包内容，推断 `extract_dir`（唯一的顶层目录）和 `bin`（顶层的可执行文件）；
-5. 生成 `bucket/<名称>.json`，然后自动跑一遍 `validate.ps1`。
+**备注**
 
-**输出示例**
+- 当前清单使用 x64 便携版，要求 Windows 10 22H2（build 19045）或 Windows 11，以及支持 DirectX 11 的显卡。Windows ARM64 上的运行依赖 x64 模拟支持。
+- 两个 Argus 版本共用账户下的配置和历史记录。若曾手动启用特权服务、PawnIO 或任务管理器替换，请在卸载前通过 Argus 设置关闭并移除。升级后特权服务副本未同步时，在「设置 → 权限 → 特权服务」中更新。
+- 下载地址末尾的 `#/argus.exe` 用于让 Scoop 固定本地文件名。
 
-```text
-仓库：unixwin/niubash
-最新版本：1.5.0（https://github.com/unixwin/niubash/releases/tag/v1.5.0）
-[64bit] niubash-v1.5.0-win-x64.tar.gz
-  下载中……
-  extract_dir：niubash-v1.5.0-win-x64
-  可执行文件：niu.exe
-[arm64] niubash-v1.5.0-win-arm64.tar.gz
-  ……
-bin：niu.exe
-```
-
-**参数**
-
-| 参数 | 作用 |
-| --- | --- |
-| `-Version` | 指定版本，例如 `1.5.0`、`v1.5.0`；默认取最新正式版 |
-| `-Name` | 清单文件名（不含 `.json`），默认取仓库名 |
-| `-Bin` | 手工指定加入 PATH 的程序，覆盖自动推断 |
-| `-ExtractDir` | 手工指定压缩包内的子目录 |
-| `-DryRun` | 只打印生成的清单，不写文件 |
-| `-Force` | 清单已存在时覆盖 |
-| `-NoHash` | 不下载资产，只按命名规则生成骨架（`hash` 留成 `REPLACE_ME`） |
-| `-Prerelease` | 允许使用预发布版本 |
-| `-Token` | GitHub 令牌，默认读环境变量 `GITHUB_TOKEN` |
-
-**指定版本**
+**卸载与残留**
 
 ```powershell
-pwsh -NoProfile -File .\scripts\new-manifest.ps1 https://github.com/unixwin/niubash -Version 1.4.2
+scoop uninstall argus
 ```
 
-上游 tag 是 `niubash-v1.4.2` 也能匹配：脚本依次尝试 `1.4.2`、`v1.4.2`，再按「以该版本号结尾」在最近 15 个 tag 里模糊匹配。命中后清单里的 `version` 会规范化成 `1.4.2`（去掉 `v` 和前缀）。确实没有这个版本时，会列出仓库最近可用的版本。
+- **C 盘文件 · 已确认有残留（使用中产生的数据）**。清单提示检查 `%APPDATA%\dev.argus.taskmanager` 的设置、界面偏好，以及 `%LOCALAPPDATA%\dev.argus.taskmanager` 的日志和历史记录。如修改过历史记录路径，也检查自定义位置。
+- **注册表 · 尚未验证**。便携清单不执行安装器，也不自动启用任务管理器替换。手动开启系统集成的情况请优先通过应用设置还原。
+- 两个版本都不再使用且确认数据不再需要后，记得先备份，再手动清理上述文件。
 
-**猜不出来时会明说**，不会硬写错的东西：
+#### argus-setup
 
-- 顶层有多个可执行文件 → 不填 `bin`，列出候选，让你用 `-Bin` 选；
-- 压缩包里没有统一顶层目录 → 不写 `extract_dir`；
-- `.7z` 且本机没装 7-Zip → 看不到内容，提示 `extract_dir` / `bin` 需手工确认；
-- `.msi` → 提示要补 `installer` 脚本；`.exe` 安装器按「可执行文件」处理，需要按实际安装行为改写。
-
-建议先 `-DryRun` 看一眼，再真正写入。
-
-### check-updates.ps1 —— 检查并升级版本
+[Argus 官方安装版](https://github.com/Ray-lea/Argus) 为所有用户安装到 `Program Files\Argus`，由安装器创建开始菜单入口。
 
 ```powershell
-pwsh -NoProfile -File .\scripts\check-updates.ps1
+scoop install my/argus-setup
+scoop update argus-setup
 ```
 
-遍历 `bucket/` 里的每个清单，查询对应 GitHub 仓库的最新正式 Release。发现更高版本时打印版本号和 Release 链接，并询问 yes/no：
+**备注**
 
-```text
-niubash：发现新版本 1.6.0（当前 1.5.0）
-  最新版本：1.6.0
-  Release ：https://github.com/unixwin/niubash/releases/tag/v1.6.0
-是否更新 niubash 到 1.6.0？ [yes/no]
-```
+- 安装、升级和卸载均需管理员 PowerShell。已装过官方安装版时，先通过 Windows「已安装的应用」卸载旧版并保留用户数据。
+- 升级或卸载前先从托盘退出 Argus。建议关闭应用内自动更新。Scoop 升级会先调用官方卸载程序，特权服务或任务管理器替换等系统集成可能需要重新启用。
 
-回答 `yes` 后，脚本在原文件上**精确替换** `version`、各架构的 `url`、`hash`、`extract_dir`，不重排、不重新格式化。写入前会重新解析 JSON 自检，自检不通过就放弃该文件、保持原样。哈希优先取 Release API 的 asset digest，上游没有 digest 时才下载资产本地计算。
-
-| 参数 | 作用 |
-| --- | --- |
-| `-CheckOnly` | 只提示是否有新版本，不改动任何文件 |
-| `-Yes` | 不询问，直接更新所有有新版本的软件 |
-| `-BucketPath` | 清单目录，默认 `bucket` |
-| `-LogPath` | 日志路径，默认仓库根目录的 `update-log.txt` |
-| `-Token` | GitHub 令牌，默认读环境变量 `GITHUB_TOKEN`，一般不需要 |
-
-每次实际更新都会把改动追加写入 `update-log.txt`：时间、版本变化、Release 链接，以及每个架构 `url` / `hash` / `extract_dir` 的旧值和新值。该文件已在 `.gitignore` 中忽略，不会上传。
-
-脚本只处理带 `checkver.github` 或 GitHub `homepage` 的清单，其他清单标记为「跳过」。查询失败（断网、超时、限流）只影响对应清单，不中断其余检查。
-
-**API 限流**：GitHub 对未登录请求限制为每小时 60 次，超出返回 `403 rate limit exceeded`。脚本会自动改用网页查询（`releases/latest` 的跳转地址，再退回 `releases.atom`），此时哈希靠下载资产本地计算，慢一些但不需要凭据。想固定走 API 可以设置令牌：
+**卸载与残留**
 
 ```powershell
-$env:GITHUB_TOKEN = 'ghp_xxxxxxxx'   # 细粒度令牌，不需要任何权限即可读公开仓库
+scoop uninstall argus-setup
 ```
 
-> 本机 SSH key 只用于 `git clone` / `git push`，对 `api.github.com` 和网页查询无效，脚本也不需要它。
+- **C 盘文件 · 已确认有残留（使用中产生的数据）**。官方静默卸载保留用户数据。检查 `%APPDATA%\dev.argus.taskmanager` 中的 `settings.json`、`preferences.json`，以及 `%LOCALAPPDATA%\dev.argus.taskmanager` 中的日志和 `history` 目录。如改过历史记录路径，也检查自定义位置。
+- **注册表 · 尚未验证**。清单通过 `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Argus` 或 `HKLM\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Argus` 检查安装位置。安装时使用这些项与卸载后是否残留是两回事。若卸载后仍看到 Argus 条目，先确认官方卸载是否成功以及是否还有其他安装实例。
+- 两个版本都不再使用且确认数据不再需要后，记得先备份，再手动清理上述文件。
 
----
+#### cloudy
 
-## 使用说明
-
-### 1. 上传到自己的 GitHub
-
-推荐创建一个空的公开仓库，例如 `scoop-bucket`。创建时**不要**勾选自动生成 README、.gitignore 或 License，避免首次推送冲突。在本项目目录执行：
+[Cloudy](https://github.com/nya-owo/cloudy)（原名 Cloud-nya）是使用 Go 和 MyGo 原生界面的第三方网易云音乐客户端。
 
 ```powershell
-git init
-git add .
-git commit -m "Initialize personal Scoop bucket"
-git branch -M main
-git remote add origin git@github.com:YOUR_GITHUB_NAME/scoop-bucket.git
-git push -u origin main
+scoop install my/cloudy
+scoop update cloudy
 ```
 
-`YOUR_GITHUB_NAME` 换成自己的用户名。用 SSH 地址可以免去每次输入密码；没有配置 SSH 就改用 `https://github.com/...`，首次推送按提示登录。已有 Git 仓库或 origin 时沿用现有设置，跳过对应步骤。
+从开始菜单打开「Cloudy」或运行 `cloudy`。打开客户端后可扫码登录。在「设置 → 下载与缓存 → 本地音乐」中添加音乐目录，也可以直接拖入文件或文件夹。
 
-也可以直接通过 GitHub 网页上传全部文件，注意要包含 `.github` 等隐藏目录。
+**备注**
 
-### 2. 订阅自己的源
+- 上游未签名，首次运行可能显示 SmartScreen 提示。请先核对软件来源。
+- 建议在「设置 → 关于」关闭应用内自动更新，统一由 Scoop 更新，以保持文件版本和 `scoop list` 一致。
+- 清单使用上游可直接解压运行的 tar.gz 更新包。上游另有 EXE 安装器，其安装目录和注册表行为不适用于此清单。
 
-需要电脑已装 Scoop 和 Git，未安装见 https://scoop.sh/ 。
+**卸载与残留**
 
 ```powershell
-scoop bucket add my https://github.com/YOUR_GITHUB_NAME/scoop-bucket.git
-scoop bucket list
+scoop uninstall cloudy
 ```
 
-`my` 是这台电脑上的别名，可改成自己喜欢的名字，之后安装用 `scoop install my/<清单名>`。其他电脑运行同样的命令即可订阅同一个源。
+- **C 盘文件 · 已确认有残留（使用中产生的数据）**。清单提示检查 `%APPDATA%\Cloudy` 的设置和播放数据、`%LOCALAPPDATA%\Cloudy` 的默认缓存，以及自定义缓存和下载目录。
+- **注册表 · 尚未验证**。此清单使用便携更新包。登录凭据由系统保存，需要清除时请在卸载前从 Cloudy 退出账号。
+- 确认文件不再需要后，记得先备份设置和需要保留的下载歌曲，再手动清理。
 
-### 3. 添加软件
+#### niubash
 
-**推荐：用脚本生成**
+[niubash](https://github.com/unixwin/niubash) 是 Windows 原生 Bash 兼容 Shell，包含 Unix 命令和 Git。
 
 ```powershell
-pwsh -NoProfile -File .\scripts\new-manifest.ps1 https://github.com/owner/repo
+scoop install my/niubash
+niu --version
+niu                    # 打开交互式 Shell
+niu -c "ls -la"        # 执行单条命令
+scoop update niubash
 ```
 
-**手工：从模板改**
+也可从开始菜单打开「Niubash」。`ls`、`grep` 和 `git` 等命令可在 `niu` 环境中直接使用。
+
+**备注**
+
+- 当前清单只将 `niu.exe` 暴露为命令行入口，避免与 Git Bash 或 MSYS2 的命令冲突。要单独调用包内的 `winuxcmd`，可在安装目录中找到 `winuxcmd\usr\bin\winuxcmd.exe`。
+- 常规安装无需管理员权限。上游包未签名，首次运行可能显示 SmartScreen 提示。请先核对软件来源。
+- 清单使用上游 tar.gz 包，解压时可还原 Git 和 awk 载荷使用的硬链接，并通过 `extract_dir` 定位带版本号的顶层目录。
+
+**卸载与残留**
 
 ```powershell
-Copy-Item .\templates\portable.json .\bucket\my-app.json
-notepad .\bucket\my-app.json
+scoop uninstall niubash
 ```
 
-模板字段含义：
+- **C 盘文件 · 已确认有残留（使用中产生的数据）**。清单提示检查 niubash 主目录（默认通常是 `%USERPROFILE%`）下的 `.niubashrc`、`.niubash_history` 和 `.niubash` 目录。设置了 `HISTFILE` 时也检查自定义历史文件。
+- **注册表 · 尚未验证**。清单未定义应用专用的注册表清理操作。
+- 确认配置和命令历史不再需要后，记得先备份，再手动删除。
 
-| 字段 | 填写内容 |
-| --- | --- |
-| `version` | 实际版本，例如 `1.2.3` |
-| `description` | 软件介绍 |
-| `homepage` | 软件官网 |
-| `license` | 真实许可证，例如 `MIT`；专有软件核实后填 `Proprietary` |
-| `url` | 对应版本的安装包直链，不能是下载介绍页面 |
-| `hash` | 下载文件的真实 SHA256 |
-| `bin` | 解压后要加入命令行的程序路径；不需要命令行入口时可删除 |
-| `shortcuts` | 开始菜单快捷方式，程序路径与显示名称都要改；不需要可删除 |
+### 添加软件与发布
 
-把所有 `REPLACE_ME` 和示例路径替换掉。JSON 不支持注释，最后一个字段后面不要加逗号。
+可用 [生成脚本](#从-github-release-生成清单)，也可复制模板后编辑。
 
-自己算 SHA256（把网址换成真实直链）：
+```powershell
+Copy-Item ./templates/portable.json ./bucket/my-app.json
+notepad ./bucket/my-app.json
+```
+
+将 `version`、`description`、`homepage`、`license`、`url`、`hash` 等字段填为实际值并替换所有占位符。下载地址使用固定版本的资产直链。按程序实际路径设置 `bin` 和 `shortcuts`。压缩包若有统一的顶层目录，填写 `extract_dir`，此时程序路径相对该目录填写。只有需要 Scoop 跨版本保留的应用目录才加入 `persist`。安装器类清单需按实际安装行为编写。
+
+可手动下载对应资产计算哈希，下面的地址需替换为真实直链。
 
 ```powershell
 $downloadUrl = 'https://example.com/app-1.2.3-win64.zip'
@@ -255,274 +238,41 @@ Invoke-WebRequest -Uri $downloadUrl -OutFile $packagePath
 (Get-FileHash -LiteralPath $packagePath -Algorithm SHA256).Hash.ToLowerInvariant()
 ```
 
-优先使用固定版本下载地址，避免上游替换文件后校验失败。
+新增软件时按 [维护指引](AGENTS.md) 补齐 README 条目、安装备注和卸载提示。提交前先运行基础校验，在测试环境验证安装、启动和卸载，再将清单和文档一起提交。
 
-ZIP 解压后还有一层目录（例如 `MyApp-1.2.3/app.exe`）时，加：
+```powershell
+pwsh -NoProfile -File ./scripts/validate.ps1
+scoop install ./bucket/my-app.json
+```
+
+如果要建立自己的 Bucket，可在 GitHub 创建空仓库，将本仓库内容连同 `.github/` 推送到默认分支，再用新仓库地址订阅。使用 SSH 或 HTTPS 均可，已有 Git 仓库可沿用现有设置。
+
+### GitHub Actions 自动维护
+
+[Excavator](.github/workflows/excavator.yml) 使用 [ScoopInstaller/GithubActions](https://github.com/ScoopInstaller/GithubActions)，每 4 小时在默认分支检查同时配置 `checkver` 和 `autoupdate` 的清单。北京时间约为 00:20、04:20、08:20、12:20、16:20 和 20:20，执行时间可能延迟。也可在仓库的 Actions → Excavator → Run workflow 中手动运行。
+
+- 发现新版后，工作流更新下载地址、SHA256 以及适用的解压目录，并使用 GitHub 提供的 `GITHUB_TOKEN` 提交和推送。仓库策略和分支保护规则需允许该操作。
+- 工作流在更新前后执行基础校验。更新后的校验会报告结果，此时官方 Action 已完成推送。用 `GITHUB_TOKEN` 推送的自动提交不会再次触发普通 push 校验。
+- 运行失败时在对应任务查看日志。公开仓库长期不活跃时，GitHub 可能暂停定时任务，可在 Actions 页面重新启用。
+
+生成脚本会填 `checkver`，如需自动更新，应按上游发布规则补齐 `autoupdate`。单架构示例：
 
 ```json
-"extract_dir": "MyApp-1.2.3"
-```
-
-此时 `bin` 和 `shortcuts` 的路径相对于该目录，写 `app.exe`。数据要跨升级保留时，按软件实际目录加 `"persist": ["data"]`，不要填不存在的数据目录。
-
-模板只适合便携版 ZIP。安装器 EXE、MSI、需要注册表或服务的软件要按其安装行为单独编写，不能只替换下载地址。
-
-### 4. 本地测试并提交
-
-```powershell
-pwsh -NoProfile -File .\scripts\validate.ps1
-scoop install .\bucket\my-app.json
-```
-
-确认软件能启动、命令或快捷方式正常后再提交；已装过的先看 `scoop list`。
-
-```powershell
-git add bucket README.md
-git commit -m "Add my-app"
-git push
-```
-
-推送后 GitHub Actions 会跑校验。**别忘了在 [已收录软件](#已收录软件) 里补一节使用说明。**
-
-### 5. 升级软件
-
-```powershell
-pwsh -NoProfile -File .\scripts\check-updates.ps1   # 改清单
-git add bucket && git commit -m "update manifests" && git push
-```
-
-订阅端：
-
-```powershell
-scoop update          # 同步 bucket
-scoop update niubash  # 升级已安装的软件
-```
-
-已配置的清单会由下面的 Excavator 自动维护，本地脚本用于需要立刻更新或排查问题时。自动维护仅更新仓库清单，电脑上已安装的软件仍需运行上面的 `scoop update <软件名>`。
-
-### 6. GitHub Actions 自动维护
-
-工作流使用官方 [ScoopInstaller/GithubActions](https://github.com/ScoopInstaller/GithubActions)，配置见 [excavator.yml](.github/workflows/excavator.yml)。
-
-- **定时运行**：每 4 小时一次，北京时间约 00:20、04:20、08:20、12:20、16:20、20:20；GitHub 可能延迟执行。
-- **手动运行**：仓库 → Actions → Excavator → Run workflow → 选择 `main` → Run workflow。
-- **更新内容**：按 `checkver` 查询上游正式版，按 `autoupdate` 生成下载地址和解压目录，取得 SHA256，自动提交并推送到运行分支。没有新版本时不会提交。
-- **权限**：使用 GitHub 自动提供的 `GITHUB_TOKEN` 和工作流声明的 `contents: write`，无需上传 SSH 私钥或另建 PAT。仓库或组织策略仍须允许 Actions 写入；分支保护若禁止机器人直接推送，需要调整规则。
-- **校验**：自动更新前后都运行基础校验。官方 Action 内部已经执行提交和推送，末尾校验负责报告结果，不能拦截已经推送的提交；它也不代替软件安装测试。
-
-首次上传后，确保仓库 Settings → Actions → General 允许运行该 Action。运行失败可在 Actions → Excavator → 对应任务中查看日志。`THROW_ERROR=1` 让上游检查错误显示为失败，便于发现资产更名或下载问题。
-
-**以后新增软件如何加入自动维护**
-
-生成脚本目前只生成 `checkver`，还需按真实发布规则补上 `autoupdate`。以单架构 ZIP 为例：
-
-```json
-"checkver": {
+{
+  "checkver": {
     "github": "https://github.com/owner/repo"
-},
-"autoupdate": {
+  },
+  "autoupdate": {
     "url": "https://github.com/owner/repo/releases/download/v$version/app-$version-win64.zip"
+  }
 }
 ```
 
-多架构清单把 URL 放到 `autoupdate.architecture.64bit` / `arm64` 下，参考现有清单。带版本号的 `extract_dir` 也要在同一架构下提供 `$version` 模板。需要稳定的 tag、资产命名和目录规则；上游改变规则时需人工修正。
+多架构的下载地址放到 `autoupdate.architecture.64bit`、`arm64` 等对应条目下，带版本号的 `extract_dir` 也要使用 `$version` 模板。已有清单可作为示例。上游更改 tag、资源名称或目录规则时需要同步修正。自动维护更新的是仓库清单，已安装软件仍通过 `scoop update <包名>` 升级。
 
-**不要求独立的 `.sha256` 文件**：Scoop 优先读取 GitHub Release 的 asset digest；没有可用 digest 时会下载安装包计算 SHA256。不要把当前版本的固定哈希写到 `autoupdate` 中。
+### 官方参考
 
-自动提交由 `GITHUB_TOKEN` 推送，不会再次触发普通 push 工作流，因此 Excavator 自身包含更新后的基础校验。定时任务只在默认分支运行；公开仓库长期无活动时 GitHub 可能暂停定时任务，可到 Actions 页面重新启用。
-
----
-## 已收录软件
-
-版本以链接指向的清单中 `version` 字段为准，避免自动更新后文档里的版本过期。
-
-| 清单 | 软件 | 架构 | 说明 |
-| --- | --- | --- | --- |
-| [`bucket/argus.json`](bucket/argus.json) | [Argus](https://github.com/Ray-lea/Argus) | 64bit | 原生 Windows 任务管理器，便携版 |
-| [`bucket/argus-setup.json`](bucket/argus-setup.json) | [Argus 安装版](https://github.com/Ray-lea/Argus) | 64bit | 官方安装器，为所有用户安装到 `Program Files\Argus` |
-| [`bucket/cloudy.json`](bucket/cloudy.json) | [cloudy](https://github.com/nya-owo/cloudy) | 64bit / arm64 | 网易云音乐第三方客户端，Go 原生界面，自带应用内更新 |
-| [`bucket/niubash.json`](bucket/niubash.json) | [niubash](https://github.com/unixwin/niubash) | 64bit / arm64 | 原生 Windows Bash 兼容 shell，命令名 `niu` |
-
-### 卸载后保留的数据
-
-运行 `scoop uninstall <包名>` 时，清单会提示检查下列位置，由你决定是否备份和手动清理。路径指向 Windows 用户目录，通常在 C 盘。`--purge` 只清理 Scoop 管理的持久化数据，这些应用自行保存的数据仍会保留。
-
-| 包名 | 卸载后检查的位置 |
-| --- | --- |
-| `argus` / `argus-setup` | `%APPDATA%\dev.argus.taskmanager` 和 `%LOCALAPPDATA%\dev.argus.taskmanager`，另检查自定义历史记录目录。两个版本共用数据，只在两个版本都不再使用时清理。 |
-| `cloudy` | `%APPDATA%\Cloudy`（设置和播放数据）、`%LOCALAPPDATA%\Cloudy`（默认缓存）。如改过缓存或下载位置，也检查自定义目录，保留仍需使用的下载歌曲。 |
-| `niubash` | niubash 主目录（通常为 `%USERPROFILE%`）中的 `.niubashrc`、`.niubash_history` 和 `.niubash`。如设置过 `HISTFILE`，也检查自定义历史文件。 |
-
-Scoop 从安装时保存的清单读取卸载脚本。已用旧清单安装的软件，在下次升级或重新安装后才会带上提醒。在此之前卸载，可以直接按上表检查。
-
-### Argus
-
-[Argus](https://github.com/Ray-lea/Argus) 是原生 Windows 任务管理器，提供进程、性能、历史记录、文件锁、网络连接、服务和启动项管理，并可在托盘、桌面或任务栏显示监控信息。
-
-**安装**
-
-```powershell
-scoop update
-scoop install my/argus
-```
-
-也可以从开始菜单打开「Argus」，或运行 `argus` 启动。默认快捷键 `Ctrl+Alt+Esc` 可显示或隐藏窗口。
-
-**注意事项**
-
-- 当前清单使用 v0.6.0 的 x64 便携版单文件，不运行上游安装器；清单会随上游发布更新。上游 README 提到 ARM64 支持，但该版本 Release 没有 ARM64 资产，因此目前仅配置 64bit。Windows ARM64 上可能可通过 x64 模拟运行，尚未作为原生 ARM64 清单验证。
-- 要求 Windows 10 22H2（build 19045）或 Windows 11，以及支持 DirectX 11 的显卡。
-- 便携版与安装版共用用户设置和历史记录。建议统一通过 `scoop update argus` 更新；它不会自动安装可选的特权服务/PawnIO，也不会替用户开启任务管理器替换。若你在应用内自行启用了特权服务或任务管理器替换，卸载前先在 Argus 设置中关闭并移除，避免留下 Scoop 之外管理的组件。
-- 若升级后 Argus 的特权服务副本未同步，可在「设置 → 权限 → 特权服务」中更新服务。
-
-**升级**
-
-```powershell
-scoop update
-scoop update argus
-```
-
-清单使用 `checkver` 和 x64 `autoupdate`，Excavator 会按 `Argus_$version_x64.exe` 规则更新版本、下载地址和 SHA256。下载 URL 的 `#/argus.exe` 仅用于让 Scoop 固定安装后的文件名，并非上游 URL 的一部分。
-
-### Argus 安装版
-
-在管理员 PowerShell 中运行以下命令。官方安装器会为所有用户安装到 `Program Files\Argus`，并创建开始菜单入口。已有官方安装版时，请先通过 Windows「已安装的应用」卸载旧版，并保留用户数据。
-
-```powershell
-scoop update
-scoop install my/argus-setup
-```
-
-**配置与历史记录**
-
-| 数据 | 默认位置 |
-| --- | --- |
-| 应用设置和界面偏好 | `%APPDATA%\dev.argus.taskmanager\` 下的 `settings.json` 和 `preferences.json` |
-| 历史记录 | `%LOCALAPPDATA%\dev.argus.taskmanager\history\`，可在 Argus 设置中更改 |
-
-两个版本使用同一 Windows 账户的数据目录，切换后会沿用已有设置和历史记录。数据本身位于安装目录之外，因此清单省略 `persist`。官方静默卸载默认保留用户数据。建议在同一台电脑上选择一个版本使用。
-
-**升级与卸载**
-
-```powershell
-scoop update
-scoop update argus-setup
-# 不再使用时
-scoop uninstall argus-setup
-```
-
-升级和卸载前先从托盘退出 Argus，再在管理员 PowerShell 中执行。清单已加入 Excavator 自动维护。建议在 Argus 中关闭应用内自动更新，统一用 Scoop 管理版本。Scoop 升级会先调用官方卸载程序，已启用的特权服务或任务管理器替换等系统集成可能需要重新启用。
-
-### niubash
-
-[niubash](https://github.com/unixwin/niubash) 是原生实现的 Windows Bash 兼容 shell（Git Bash 替代品），单文件 `niu.exe`，内置 Unix 命令和 git。
-
-**安装**
-
-```powershell
-scoop update
-scoop install my/niubash
-niu --version
-```
-
-**使用**
-
-装好后直接在终端里运行 `niu`，或从开始菜单打开「Niubash」：
-
-```powershell
-niu                      # 进入 niubash 的交互 shell
-niu -c "ls -la"          # 执行单条命令
-```
-
-`niu` 启动时会带上自己的 `winuxcmd` 运行环境，`ls`、`grep`、`git` 等命令在里面都能用，不需要额外装 Git Bash。
-
-**注意事项**
-
-- 清单只把包内的 `niu.exe` 加入 PATH，命令名为 `niu`；`winuxcmd` 里的 176 个 Unix 命令**没有**加入 PATH，避免和 Git Bash、MSYS2 的命令互相覆盖。需要单独调用时用安装目录下的 `winuxcmd\usr\bin\winuxcmd.exe`。
-- 上游未做代码签名，首次运行 SmartScreen 可能报警（上游 issue #511），选择「仍要运行」即可。
-- 安装不需要管理员权限，也不会改动系统 PATH 之外的设置。
-
-**升级**
-
-```powershell
-scoop update
-scoop update niubash
-```
-
-已配置 `checkver` 和双架构 `autoupdate`，Excavator 自动更新版本、下载地址、SHA256，以及 `niubash-v<版本>-win-x64` / `-win-arm64` 解压目录。上游即使没有为 tar.gz 提供独立校验文件，Scoop 也能获取 digest 或下载计算哈希。
-
-**为什么用 tar.gz**
-
-清单选用上游的 `win-x64.tar.gz` / `win-arm64.tar.gz`：这两种包在解压时会还原 git、awk 载荷的硬链接，体积最小（x64 约 31 MB，zip 版 57 MB）。压缩包内有一层带版本号的目录，所以用 `extract_dir` 指定它，`bin` 才能找到根目录下的 `niu.exe`。
-
-### cloudy
-
-[Cloudy](https://github.com/nya-owo/cloudy)（旧名 Cloud-nya）是第三方网易云音乐桌面客户端，用 Go 和 MyGo 写原生界面，不套 WebView，启动快、占用小。
-
-**安装**
-
-```powershell
-scoop update
-scoop install my/cloudy
-```
-
-装完从开始菜单打开「Cloudy」，或在终端运行 `cloudy`。
-
-**使用**
-
-- 登录：打开客户端扫码登录网易云账号，登录状态保存在系统凭据里。
-- 命令行：清单把 `Cloudy.exe` 加入 PATH，命令名 `cloudy`。它是 GUI 程序，在终端运行不会输出内容，只是把窗口叫起来。
-- 本地音乐：设置 → 下载与缓存 → 本地音乐，添加存放 MP3 / FLAC 的文件夹；也可以把文件或文件夹直接拖进窗口。
-
-**注意事项**
-
-- 上游未做代码签名，首次运行 SmartScreen 会提示，选「更多信息 → 仍要运行」。
-- **自带应用内更新**：Cloudy 会自己检查 GitHub（连不上时切镜像）并静默替换文件，绕过 Scoop 的版本记录。装了 Scoop 版建议在设置里关掉自动更新，统一用 `scoop update cloudy` 升级，否则 `scoop list` 显示的版本会和实际文件对不上。
-- 只有 Windows 版本，分 x64 和 ARM64 两种；ARM64 设备会装 `arm64` 那个包。
-- 卸载会保留设置、播放数据和缓存。需要清除系统保存的登录凭据时，请在卸载前从 Cloudy 退出账号。数据路径见上方卸载说明。
-
-**升级**
-
-```powershell
-scoop update
-scoop update cloudy
-```
-
-已配置 `checkver` 和双架构 `autoupdate`，Excavator 按 `cloudy-<版本>-windows-amd64.tar.gz` / `-arm64.tar.gz` 的规则更新清单和哈希。无需在本机手动维护版本；需要立即检查时也可以运行本地更新脚本。
-
-**为什么用 tar.gz**
-
-发布里的 `cloudy-<版本>-windows-<架构>.tar.gz` 是 MyGo 的更新包，内容是「装好之后的文件」，平铺在压缩包根目录（`Cloudy.exe` 加资源目录），解压即可运行，所以清单不需要 `extract_dir`，`bin` 直接写 `Cloudy.exe`。安装器 `cloudy-setup-*.exe` 会装到 `%LOCALAPPDATA%\Programs` 并写注册表，不适合交给 Scoop 管理。
-
-新增软件时照这个结构补一节（复制后改内容即可）：
-
-````markdown
-### 软件名
-
-一句话介绍。
-
-**安装**
-
-```powershell
-scoop install my/软件名
-```
-
-**使用**
-
-```powershell
-命令或入口说明
-```
-
-**注意事项**
-
-- PATH、签名、依赖、已知问题
-````
-
----
-
-## 官方参考
-
-- Scoop：https://scoop.sh/
-- 软件清单说明：https://github.com/ScoopInstaller/Scoop/wiki/App-Manifests
-- 自建 Bucket：https://github.com/ScoopInstaller/Scoop/wiki/Buckets
-- 自动更新配置：https://github.com/ScoopInstaller/Scoop/wiki/Autoupdate
+- [Scoop 官网](https://scoop.sh/)
+- [软件清单说明](https://github.com/ScoopInstaller/Scoop/wiki/App-Manifests)
+- [自建 Bucket](https://github.com/ScoopInstaller/Scoop/wiki/Buckets)
+- [自动更新配置](https://github.com/ScoopInstaller/Scoop/wiki/Autoupdate)
