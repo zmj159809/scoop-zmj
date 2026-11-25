@@ -17,7 +17,8 @@ scoop install my/niubash
 
 ```text
 bucket/                         正式软件清单，每个软件一个 JSON
-  argus.json                    Argus（Windows 任务管理器）
+  argus.json                    Argus（Windows 任务管理器，便携版）
+  argus-setup.json              Argus（官方安装版）
   cloudy.json                   Cloudy（网易云音乐第三方客户端）
   niubash.json                  niubash（Bash for Windows）
 templates/portable.json         便携版 ZIP 模板（不会被 Scoop 当成软件）
@@ -337,7 +338,8 @@ scoop update niubash  # 升级已安装的软件
 
 | 清单 | 软件 | 架构 | 说明 |
 | --- | --- | --- | --- |
-| [`bucket/argus.json`](bucket/argus.json) | [Argus](https://github.com/Ray-lea/Argus) | 64bit | 原生 Windows 任务管理器；当前上游 Release 仅提供 x64 便携版 |
+| [`bucket/argus.json`](bucket/argus.json) | [Argus](https://github.com/Ray-lea/Argus) | 64bit | 原生 Windows 任务管理器，便携版 |
+| [`bucket/argus-setup.json`](bucket/argus-setup.json) | [Argus 安装版](https://github.com/Ray-lea/Argus) | 64bit | 官方安装器，为所有用户安装到 `Program Files\Argus` |
 | [`bucket/cloudy.json`](bucket/cloudy.json) | [cloudy](https://github.com/nya-owo/cloudy) | 64bit / arm64 | 网易云音乐第三方客户端，Go 原生界面，自带应用内更新 |
 | [`bucket/niubash.json`](bucket/niubash.json) | [niubash](https://github.com/unixwin/niubash) | 64bit / arm64 | 原生 Windows Bash 兼容 shell，命令名 `niu` |
 
@@ -369,6 +371,35 @@ scoop update argus
 ```
 
 清单使用 `checkver` 和 x64 `autoupdate`，Excavator 会按 `Argus_$version_x64.exe` 规则更新版本、下载地址和 SHA256。下载 URL 的 `#/argus.exe` 仅用于让 Scoop 固定安装后的文件名，并非上游 URL 的一部分。
+
+### Argus 安装版
+
+在管理员 PowerShell 中运行以下命令。官方安装器会为所有用户安装到 `Program Files\Argus`，并创建开始菜单入口。已有官方安装版时，请先通过 Windows「已安装的应用」卸载旧版，并保留用户数据。
+
+```powershell
+scoop update
+scoop install my/argus-setup
+```
+
+**配置与历史记录**
+
+| 数据 | 默认位置 |
+| --- | --- |
+| 应用设置和界面偏好 | `%APPDATA%\dev.argus.taskmanager\` 下的 `settings.json` 和 `preferences.json` |
+| 历史记录 | `%LOCALAPPDATA%\dev.argus.taskmanager\history\`，可在 Argus 设置中更改 |
+
+两个版本使用同一 Windows 账户的数据目录，切换后会沿用已有设置和历史记录。数据本身位于安装目录之外，因此清单省略 `persist`。官方静默卸载默认保留用户数据。建议在同一台电脑上选择一个版本使用。
+
+**升级与卸载**
+
+```powershell
+scoop update
+scoop update argus-setup
+# 不再使用时
+scoop uninstall argus-setup
+```
+
+升级和卸载前先从托盘退出 Argus，再在管理员 PowerShell 中执行。清单已加入 Excavator 自动维护。建议在 Argus 中关闭应用内自动更新，统一用 Scoop 管理版本。Scoop 升级会先调用官方卸载程序，已启用的特权服务或任务管理器替换等系统集成可能需要重新启用。
 
 ### niubash
 

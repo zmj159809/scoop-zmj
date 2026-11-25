@@ -1,0 +1,59 @@
+{
+    "version": "0.6.0",
+    "description": "Native Windows task manager (official all-users installer)",
+    "homepage": "https://github.com/Ray-lea/Argus",
+    "license": "AGPL-3.0-or-later",
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/Ray-lea/Argus/releases/download/v0.6.0/Argus_0.6.0_x64-setup.exe#/argus-setup.exe",
+            "hash": "6c9679f5fd418c46db12befaf63024803f507e6eaaaae4939019dc37705a9218"
+        }
+    },
+    "installer": {
+        "script": [
+            "if (!(is_admin)) { abort 'Run Scoop from an elevated PowerShell to install argus-setup.' }",
+            "$target = Join-Path $env:ProgramW6432 'Argus'",
+            "$keys = @('HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Argus', 'HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Argus')",
+            "if ($keys | Where-Object { Test-Path -LiteralPath $_ }) { abort 'Uninstall the existing Argus installation before installing argus-setup.' }",
+            "if (Test-Path -LiteralPath $target) {",
+            "    $folder = Get-Item -LiteralPath $target -Force -ErrorAction Stop",
+            "    if (!$folder.PSIsContainer -or ($folder.Attributes -band [IO.FileAttributes]::ReparsePoint) -or (Get-ChildItem -LiteralPath $target -Force -ErrorAction Stop | Select-Object -First 1)) { abort 'The Argus installation path is occupied. Inspect it before continuing.' }",
+            "}",
+            "$setup = Start-Process -FilePath (Join-Path $dir 'argus-setup.exe') -ArgumentList '/S', \"/D=$target\" -Wait -PassThru",
+            "if ($setup.ExitCode -ne 0 -or !(Test-Path -LiteralPath (Join-Path $target 'argus.exe') -PathType Leaf) -or !(Test-Path -LiteralPath (Join-Path $target 'uninstall.exe') -PathType Leaf)) { abort \"Argus setup did not complete (exit code: $($setup.ExitCode)).\" }"
+        ]
+    },
+    "uninstaller": {
+        "script": [
+            "if (!(is_admin)) { abort 'Run Scoop from an elevated PowerShell to uninstall or update argus-setup.' }",
+            "$target = Join-Path $env:ProgramW6432 'Argus'",
+            "$uninstall = Join-Path $target 'uninstall.exe'",
+            "if (Test-Path -LiteralPath $uninstall -PathType Leaf) {",
+            "    $keys = @('HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Argus', 'HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Argus')",
+            "    $location = $keys | ForEach-Object { Get-ItemPropertyValue -LiteralPath $_ -Name InstallLocation -ErrorAction SilentlyContinue } | Where-Object { $_ -and $_.Trim([char]34) -eq $target }",
+            "    if (!$location) { abort 'The Windows uninstall entry does not match the Scoop-managed Argus path.' }",
+            "    if ((Get-Item -LiteralPath $target -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { abort 'The Argus installation path is a reparse point.' }",
+            "    if ((Get-Item -LiteralPath $uninstall -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { abort 'The Argus uninstaller is a reparse point.' }",
+            "    $result = Start-Process -FilePath $uninstall -ArgumentList '/S' -Wait -PassThru",
+            "    if ($result.ExitCode -ne 0 -or (Test-Path -LiteralPath (Join-Path $target 'argus.exe'))) { abort \"Argus uninstall did not complete (exit code: $($result.ExitCode)).\" }",
+            "} elseif (Test-Path -LiteralPath (Join-Path $target 'argus.exe')) {",
+            "    abort 'Argus is present but its uninstaller is missing. Repair the installation before continuing.'",
+            "}"
+        ]
+    },
+    "notes": [
+        "在管理员 PowerShell 中安装、升级和卸载。安装位置为 Program Files\\Argus，启动入口由官方安装程序创建。",
+        "安装版与便携版共用用户配置和历史记录，无需配置 Scoop persist。请先退出 Argus 再升级或卸载。",
+        "Scoop 升级会运行官方卸载程序后再安装新版本。建议关闭 Argus 应用内自动更新，统一用 Scoop 升级。"
+    ],
+    "checkver": {
+        "github": "https://github.com/Ray-lea/Argus"
+    },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/Ray-lea/Argus/releases/download/v$version/Argus_$version_x64-setup.exe#/argus-setup.exe"
+            }
+        }
+    }
+}
