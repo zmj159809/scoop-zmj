@@ -11,5 +11,19 @@
             "app.exe",
             "My App"
         ]
-    ]
+    ],
+    "notes": [
+        "REPLACE_ME: 填写系统要求、首次运行或关闭应用内自动更新等注意事项；如无特殊提醒可删除 notes 字段。"
+    ],
+    "post_uninstall": [
+        "if (-not ((Get-PSCallStack).ScriptName -match '[\\\\/]scoop-uninstall\\.ps1$')) { return }",
+        "Write-Warning 'REPLACE_ME: 说明应用可能保留的配置、缓存或用户数据，确认不再需要后先备份再手动清理。'",
+        "Write-Host '  检查 %APPDATA%\\REPLACE_ME 和 %LOCALAPPDATA%\\REPLACE_ME'"
+    ],
+    "checkver": {
+        "github": "https://github.com/REPLACE_ME/REPLACE_ME"
+    },
+    "autoupdate": {
+        "url": "https://example.com/REPLACE_ME/app-$version-win64.zip"
+    }
 }

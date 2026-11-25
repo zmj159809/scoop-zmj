@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     输入一个 GitHub 仓库地址，自动生成 Scoop 清单到 bucket/。
 
@@ -89,9 +89,6 @@ if ($Token) { $script:ApiHeaders['Authorization'] = "Bearer $Token" }
 $script:WebHeaders = @{ 'User-Agent' = 'Mozilla/5.0 scoop-bucket-manifest' }
 $script:ApiDisabled = $false
 
-$script:TempDir = Join-Path ([IO.Path]::GetTempPath()) ('scoop-bucket-manifest-' + [guid]::NewGuid().ToString('N'))
-New-Item -ItemType Directory -Path $script:TempDir -Force | Out-Null
-
 $script:ArchiveExtensions = @(
     '.tar.gz', '.tar.bz2', '.tar.xz', '.tgz', '.zip', '.7z', '.exe', '.msi'
 )
@@ -141,9 +138,39 @@ function Get-ArchFromText {
 
     $value = $Text.ToLowerInvariant()
     if ($value -match 'arm64|aarch64') { return 'arm64' }
-    if ($value -match 'x86_64|x64|amd64|win64|64bit|64-bit') { return '64bit' }
+    if ($value -match 'x86[_-]?64|x64|amd64|win64|64bit|64-bit') { return '64bit' }
     if ($value -match 'x86|i386|i686|win32|32bit|32-bit') { return '32bit' }
     return $null
+}
+
+function Test-IsInstallerAsset {
+    param([string]$Name)
+
+    $value = $Name.ToLowerInvariant()
+    if ($value.EndsWith('.msi')) { return $true }
+    if ($value.EndsWith('.exe') -and $value -match '(^|[^a-z0-9])(setup|installer|install)([^a-z0-9]|$)') { return $true }
+    return $false
+}
+
+function Format-JsonIndent {
+    param([string]$Json)
+
+    return [regex]::Replace($Json, '(?m)^( +)', {
+        param($match)
+        ' ' * ($match.Groups[1].Value.Length * 2)
+    })
+}
+
+function ConvertTo-VersionTemplate {
+    param(
+        [string]$Value,
+        [string]$Version
+    )
+
+    if (-not $Value -or -not $Version) { return $null }
+    $pattern = [regex]::Escape($Version)
+    if ($Value -notmatch $pattern) { return $null }
+    return [regex]::Replace($Value, $pattern, '$version')
 }
 
 function Test-IsWindowsAsset {
@@ -289,7 +316,8 @@ function Get-AvailableTags {
             if ($tags.Count -gt 0) { return $tags }
         }
         catch {
-            if ((Get-StatusCode -ErrorRecord $_) -eq 403) { $script:ApiDisabled = $true }
+            $status = Get-StatusCode -ErrorRecord $_
+            if ($status -eq 403 -or $status -eq 429) { $script:ApiDisabled = $true }
         }
     }
 
@@ -546,7 +574,13 @@ function Get-ArchiveEntries {
                 $sevenZipPath = $sevenZip.Source
             }
             else {
-                foreach ($guess in @("$env:USERPROFILE\scoop\apps\7zip\current\7z.exe", 'C:\Program Files\7-Zip\7z.exe')) {
+                $sevenZipCandidates = @()
+                if ($env:SCOOP) { $sevenZipCandidates += (Join-Path $env:SCOOP 'apps\7zip\current\7z.exe') }
+                $sevenZipCandidates += @(
+                    "$env:USERPROFILE\scoop\apps\7zip\current\7z.exe",
+                    'C:\Program Files\7-Zip\7z.exe'
+                )
+                foreach ($guess in ($sevenZipCandidates | Select-Object -Unique)) {
                     if (Test-Path -LiteralPath $guess) { $sevenZipPath = $guess; break }
                 }
             }
@@ -649,29 +683,35 @@ function New-ManifestContent {
         license     = if ($License) { $License } else { 'Unknown' }
     }
 
-    if ($ArchEntries.Count -eq 1 -and $ArchEntries[0].Arch -eq 'default') {
-        $entry = $ArchEntries[0]
-        $manifest['url'] = $entry.Url
-        $manifest['hash'] = $entry.Hash
-        if ($entry.ExtractDir) { $manifest['extract_dir'] = $entry.ExtractDir }
-    }
-    else {
-        $architecture = [ordered]@{}
-        foreach ($entry in $ArchEntries) {
-            $item = [ordered]@{
-                url  = $entry.Url
-                hash = $entry.Hash
-            }
-            if ($entry.ExtractDir) { $item['extract_dir'] = $entry.ExtractDir }
-            $architecture[$entry.Arch] = $item
+    $architecture = [ordered]@{}
+    $autoupdateArch = [ordered]@{}
+    foreach ($entry in $ArchEntries) {
+        $item = [ordered]@{
+            url  = $entry.Url
+            hash = $entry.Hash
         }
-        $manifest['architecture'] = $architecture
+        if ($entry.ExtractDir) { $item['extract_dir'] = $entry.ExtractDir }
+        $architecture[$entry.Arch] = $item
+
+        $urlTemplate = ConvertTo-VersionTemplate -Value $entry.Url -Version $Version
+        if ($urlTemplate) {
+            $autoItem = [ordered]@{ url = $urlTemplate }
+            if ($entry.ExtractDir) {
+                $extractTemplate = ConvertTo-VersionTemplate -Value $entry.ExtractDir -Version $Version
+                if ($extractTemplate) { $autoItem['extract_dir'] = $extractTemplate }
+            }
+            $autoupdateArch[$entry.Arch] = $autoItem
+        }
     }
+    $manifest['architecture'] = $architecture
 
     if ($Bin) { $manifest['bin'] = $Bin }
     if ($Notes -and $Notes.Count -gt 0) { $manifest['notes'] = @($Notes) }
 
     $manifest['checkver'] = [ordered]@{ github = "https://github.com/$Repo" }
+    if ($autoupdateArch.Count -gt 0) {
+        $manifest['autoupdate'] = [ordered]@{ architecture = $autoupdateArch }
+    }
 
     return $manifest
 }
@@ -693,6 +733,7 @@ function Invoke-Generate {
         [switch]$NoHash
     )
 
+$tempDir = $null
 try {
     if (-not $RepoUrl) {
         $RepoUrl = Read-Host '请输入 GitHub 仓库地址（例如 https://github.com/owner/repo）'
@@ -744,7 +785,14 @@ try {
         Write-Host ("[{0}] {1}" -f $item.Arch, $assetName) -ForegroundColor DarkCyan
 
         $kind = Get-ArchiveKind -FileName $assetName
+        $isInstaller = Test-IsInstallerAsset -Name $assetName
         $url = [string]$item.Asset.browser_download_url
+        $portableExeName = $null
+        if ($kind -eq 'exe' -and -not $isInstaller) {
+            $portableExeName = if ($Bin -and $Bin.ToLowerInvariant().EndsWith('.exe')) { $Bin } else { "$Name.exe" }
+            if ($url -notmatch '#/') { $url = "$url#/$portableExeName" }
+        }
+
         $hash = $null
         $detectedRoot = $null
         $candidates = @()
@@ -752,11 +800,22 @@ try {
         if ($NoHash) {
             $hash = 'REPLACE_ME'
             $warnings += "加了 -NoHash，$assetName 的 hash 需要自己填"
+            if ($kind -eq 'exe' -and -not $isInstaller) {
+                $candidates = @($portableExeName)
+            }
+            elseif ($isInstaller) {
+                $notes += '这是安装程序包，需要按实际安装和卸载行为补齐 installer / uninstaller 脚本后才能使用'
+                $warnings += "$assetName 看起来是安装程序，需要手工补 installer / uninstaller 脚本"
+            }
         }
         else {
-            $localPath = Join-Path $script:TempDir $assetName
+            if (-not $tempDir) {
+                $tempDir = Join-Path ([IO.Path]::GetTempPath()) ('scoop-bucket-manifest-' + [guid]::NewGuid().ToString('N'))
+                New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+            }
+            $localPath = Join-Path $tempDir $assetName
             Write-Host '  下载中……' -ForegroundColor DarkGray
-            Get-RemoteFile -Url $url -Destination $localPath
+            Get-RemoteFile -Url ([string]$item.Asset.browser_download_url) -Destination $localPath
 
             $hash = (Get-FileHash -LiteralPath $localPath -Algorithm SHA256).Hash.ToLowerInvariant()
             $digest = [string]$item.Asset.digest
@@ -774,15 +833,19 @@ try {
                     $candidates = @(Get-BinCandidates -Entries $entries -Root $detectedRoot)
                 }
             }
-            elseif ($kind -eq 'exe') {
-                $candidates = @($assetName)
+            elseif ($isInstaller) {
+                $notes += '这是安装程序包，需要按实际安装和卸载行为补齐 installer / uninstaller 脚本后才能使用'
+                $warnings += "$assetName 看起来是安装程序，需要手工补 installer / uninstaller 脚本"
             }
-            elseif ($kind -eq 'msi') {
-                $notes += '这是 MSI 安装包，需要补 installer 字段（例如 $dir\setup.msi /qn）后才能安装'
-                $warnings += 'MSI 需要手工补 installer 脚本'
+            elseif ($kind -eq 'exe') {
+                $candidates = @($portableExeName)
             }
 
             Remove-Item -LiteralPath $localPath -Force -ErrorAction SilentlyContinue
+        }
+
+        if (-not (ConvertTo-VersionTemplate -Value $url -Version $release.Version)) {
+            $warnings += "$assetName 的下载地址不包含版本号 $($release.Version)，autoupdate 需要手工配置"
         }
 
         $entry = [pscustomobject]@{
@@ -837,7 +900,7 @@ try {
         -Bin $resolvedBin `
         -Notes $notes
 
-    $json = $manifest | ConvertTo-Json -Depth 8
+    $json = Format-JsonIndent -Json ($manifest | ConvertTo-Json -Depth 8)
 
     Write-Host ''
     Write-Host '---------- 生成的清单 ----------' -ForegroundColor Cyan
@@ -872,11 +935,11 @@ try {
     Write-Host ("  scoop update；然后 scoop install {0}" -f $Name)
     Write-Host '本机已订阅这个 bucket 时直接装即可；否则先 scoop bucket add <名字> <仓库地址>。'
     Write-Host ''
-    Write-Host ("别忘了在 README.md 的「已收录软件」里补一节 {0} 的使用说明。" -f $Name) -ForegroundColor DarkGray
+    Write-Host ("按 AGENTS.md 约定，提交前请核查 {0} 的 C 盘与注册表残留，补齐 notes / post_uninstall，并同步更新 README.md 的「已收录软件」汇总表与软件小节。" -f $Name) -ForegroundColor DarkGray
 }
 finally {
-    if (Test-Path -LiteralPath $script:TempDir) {
-        Remove-Item -LiteralPath $script:TempDir -Recurse -Force -ErrorAction SilentlyContinue
+    if ($tempDir -and (Test-Path -LiteralPath $tempDir -PathType Container)) {
+        Remove-Item -LiteralPath $tempDir -Recurse -Force -ErrorAction SilentlyContinue
     }
 }
 }

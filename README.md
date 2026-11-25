@@ -45,7 +45,7 @@ pwsh -NoProfile -File ./scripts/new-manifest.ps1 https://github.com/unixwin/niub
 pwsh -NoProfile -File ./scripts/new-manifest.ps1 unixwin/niubash -Version 1.4.2 -DryRun
 ```
 
-脚本默认选择最新正式版，按文件名筛选 Windows 发布资产和架构，下载计算 SHA256，并尝试推断 `extract_dir` 和 `bin`。GitHub 仓库可用完整地址或 `owner/repo` 指定。预览无误后去掉 `-DryRun`，脚本会生成清单并运行基础校验。
+脚本默认选择最新正式版，按文件名筛选 Windows 发布资产和架构，下载计算 SHA256，并尝试推断 `extract_dir`、`bin` 以及 `checkver` / `autoupdate`（便携单文件 `.exe` 会自动追加 `#/<包名>.exe` 固定本地文件名）。GitHub 仓库可用完整地址或 `owner/repo` 指定。预览无误后去掉 `-DryRun`，脚本会生成清单并运行基础校验。
 
 | 参数 | 用途 |
 | --- | --- |
@@ -258,7 +258,7 @@ scoop install ./bucket/my-app.json
 - 工作流在更新前后执行基础校验。更新后的校验会报告结果，此时官方 Action 已完成推送。用 `GITHUB_TOKEN` 推送的自动提交不会再次触发普通 push 校验。
 - 运行失败时在对应任务查看日志。公开仓库长期不活跃时，GitHub 可能暂停定时任务，可在 Actions 页面重新启用。
 
-生成脚本会填 `checkver`，如需自动更新，应按上游发布规则补齐 `autoupdate`。单架构示例：
+生成脚本会填 `checkver`，并尽量按下载链接和 `extract_dir` 中的版本号自动生成 `autoupdate`；若上游发布规则特殊，请按实际情况手动调整。单架构示例：
 
 ```json
 {
