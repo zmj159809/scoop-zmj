@@ -139,7 +139,7 @@ scoop uninstall argus
 
 #### argus-setup
 
-[Argus 官方安装版](https://github.com/Ray-lea/Argus) 为所有用户安装到 `Program Files\Argus`，由安装器创建开始菜单入口。
+`argus-setup` 使用 [Argus 官方 x64 安装程序](https://github.com/Ray-lea/Argus) 安装 Windows 任务管理器。主程序位于 `<Scoop 根目录>\apps\argus-setup\<版本>`，例如 `D:\scoop\apps\argus-setup\0.6.0`。从开始菜单打开「Argus (Setup)」。
 
 ```powershell
 scoop install my/argus-setup
@@ -148,18 +148,21 @@ scoop update argus-setup
 
 **备注**
 
-- 安装、升级和卸载均需管理员 PowerShell。已装过官方安装版时，先通过 Windows「已安装的应用」卸载旧版并保留用户数据。
-- 升级或卸载前先从托盘退出 Argus。建议关闭应用内自动更新。Scoop 升级会先调用官方卸载程序，特权服务或任务管理器替换等系统集成可能需要重新启用。
+- 请在管理员 PowerShell 中执行安装、升级和卸载。要求 Windows 10 22H2（build 19045）或 Windows 11，以及支持 DirectX 11 的显卡。
+- 如果旧 Scoop 清单已把程序装到 `Program Files\Argus`，请先备份配置和历史记录，并关闭下文所列已启用的系统集成。接着执行 `scoop uninstall argus-setup`，再执行 `scoop install my/argus-setup`。单独用官方安装器安装的版本，可在 Windows「已安装的应用」中卸载，保留用户数据后再安装 Scoop 版。
+- 升级或卸载前先从托盘退出 Argus。建议关闭应用内自动更新，统一由 Scoop 更新。安装程序仍可刷新已有的特权服务及任务管理器替换组件，这些组件使用系统路径。
 
 **卸载与残留**
+
+卸载前，在 Argus 设置中关闭并移除已启用的开机启动、特权服务、PawnIO 和任务管理器替换。Scoop 调用官方卸载程序时使用 `/UPDATE` 和 `_?=`，以保留共享系统集成和用户数据。
 
 ```powershell
 scoop uninstall argus-setup
 ```
 
-- **C 盘文件 · 已确认有残留（使用中产生的数据）**。官方静默卸载保留用户数据。检查 `%APPDATA%\dev.argus.taskmanager` 中的 `settings.json`、`preferences.json`，以及 `%LOCALAPPDATA%\dev.argus.taskmanager` 中的日志和 `history` 目录。如改过历史记录路径，也检查自定义位置。
-- **注册表 · 尚未验证**。清单通过 `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Argus` 或 `HKLM\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Argus` 检查安装位置。安装时使用这些项与卸载后是否残留是两回事。若卸载后仍看到 Argus 条目，先确认官方卸载是否成功以及是否还有其他安装实例。
-- 两个版本都不再使用且确认数据不再需要后，记得先备份，再手动清理上述文件。
+- **C 盘文件 · 已确认有残留（使用中产生的数据）**。根据官方静默卸载脚本，程序保留 `%APPDATA%\dev.argus.taskmanager` 的设置和界面偏好，以及 `%LOCALAPPDATA%\dev.argus.taskmanager` 的日志和 `history` 目录。若应用数据目录或历史记录目录位于其他盘，也请检查相应位置。
+- **注册表 · 已确认有残留（根据官方脚本）**。`HKLM\SOFTWARE\Argus contributors\Argus` 的默认值记录上次安装路径。Scoop 会检查官方卸载使用的 `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Argus` 是否已移除。若启用过开机启动，`HKCU\Software\Microsoft\Windows\CurrentVersion\Run` 下的 `Argus` 值也会保留，可在应用设置中关闭。
+- 两个版本都不再使用且确认数据不再需要后，先备份再手动清理上述用户数据和上次安装路径。若卸载后还留有特权组件，优先通过 Argus 设置移除。卸载行为依据 [官方安装模板](https://github.com/Ray-lea/Argus/blob/v0.6.0/packaging/windows/installer-template.nsi) 和 [安装钩子](https://github.com/Ray-lea/Argus/blob/v0.6.0/packaging/windows/installer-hooks.nsh)。
 
 #### cloudy
 

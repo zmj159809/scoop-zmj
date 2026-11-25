@@ -12,45 +12,73 @@
     "installer": {
         "script": [
             "if (!(is_admin)) { abort 'Run Scoop from an elevated PowerShell to install argus-setup.' }",
-            "$target = Join-Path $env:ProgramW6432 'Argus'",
-            "$keys = @('HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Argus', 'HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Argus')",
-            "if ($keys | Where-Object { Test-Path -LiteralPath $_ }) { abort 'Uninstall the existing Argus installation before installing argus-setup.' }",
-            "if (Test-Path -LiteralPath $target) {",
-            "    $folder = Get-Item -LiteralPath $target -Force -ErrorAction Stop",
-            "    if (!$folder.PSIsContainer -or ($folder.Attributes -band [IO.FileAttributes]::ReparsePoint) -or (Get-ChildItem -LiteralPath $target -Force -ErrorAction Stop | Select-Object -First 1)) { abort 'The Argus installation path is occupied. Inspect it before continuing.' }",
+            "$target = [IO.Path]::GetFullPath($dir)",
+            "$expected = [IO.Path]::GetFullPath((versiondir 'argus-setup' $Manifest.version $global))",
+            "if ($target -ne $expected -or $target -eq [IO.Path]::GetPathRoot($target)) { abort 'Invalid Scoop version directory for argus-setup.' }",
+            "for ($folder = Get-Item -LiteralPath $target -Force -ErrorAction Stop; $folder; $folder = $folder.Parent) {",
+            "    # DirectoryInfo.Parent does not carry the PowerShell provider's PSIsContainer property.",
+            "    $attributes = $folder.Attributes",
+            "    if (!($attributes -band [IO.FileAttributes]::Directory) -or ($attributes -band [IO.FileAttributes]::ReparsePoint)) { abort \"Unsafe Argus installation path: $($folder.FullName)\" }",
             "}",
-            "$setup = Start-Process -FilePath (Join-Path $dir 'argus-setup.exe') -ArgumentList '/S', \"/D=$target\" -Wait -PassThru",
-            "if ($setup.ExitCode -ne 0 -or !(Test-Path -LiteralPath (Join-Path $target 'argus.exe') -PathType Leaf) -or !(Test-Path -LiteralPath (Join-Path $target 'uninstall.exe') -PathType Leaf)) { abort \"Argus setup did not complete (exit code: $($setup.ExitCode)).\" }"
+            "$registry = [Microsoft.Win32.RegistryKey]::OpenBaseKey('LocalMachine', 'Registry64')",
+            "$key = 'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Argus'",
+            "if ($registry.OpenSubKey($key) -or $registry.OpenSubKey('SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Argus')) { abort 'Uninstall the existing Argus installation before installing argus-setup.' }",
+            "$setupPath = Join-Path $target 'argus-setup.exe'",
+            "$files = @(Get-ChildItem -LiteralPath $target -Force -ErrorAction Stop)",
+            "if ($files.Count -ne 1 -or $files[0].FullName -ne $setupPath -or $files[0].PSIsContainer -or ($files[0].Attributes -band [IO.FileAttributes]::ReparsePoint)) { abort 'The Scoop version directory must contain only the downloaded Argus installer.' }",
+            "# NSIS requires /D to be last and unquoted, even for paths containing spaces.",
+            "$setup = Start-Process -FilePath $setupPath -ArgumentList \"/S /NS /D=$target\" -Wait -PassThru -ErrorAction Stop",
+            "$entry = $registry.OpenSubKey($key)",
+            "$location = if ($entry) { ([string]$entry.GetValue('InstallLocation')).Trim([char]34) }",
+            "if ($setup.ExitCode -ne 0 -or $location -ne $target -or !(Test-Path -LiteralPath (Join-Path $target 'argus.exe') -PathType Leaf) -or !(Test-Path -LiteralPath (Join-Path $target 'uninstall.exe') -PathType Leaf)) { abort \"Argus setup did not complete in '$target' (exit code: $($setup.ExitCode)).\" }"
         ]
     },
     "uninstaller": {
         "script": [
             "if (!(is_admin)) { abort 'Run Scoop from an elevated PowerShell to uninstall or update argus-setup.' }",
-            "$target = Join-Path $env:ProgramW6432 'Argus'",
+            "$target = [IO.Path]::GetFullPath($dir)",
+            "$expected = [IO.Path]::GetFullPath((versiondir 'argus-setup' $Manifest.version $global))",
+            "if ($target -ne $expected -or $target -eq [IO.Path]::GetPathRoot($target)) { abort 'Invalid Scoop version directory for argus-setup.' }",
+            "for ($folder = Get-Item -LiteralPath $target -Force -ErrorAction Stop; $folder; $folder = $folder.Parent) {",
+            "    # DirectoryInfo.Parent does not carry the PowerShell provider's PSIsContainer property.",
+            "    $attributes = $folder.Attributes",
+            "    if (!($attributes -band [IO.FileAttributes]::Directory) -or ($attributes -band [IO.FileAttributes]::ReparsePoint)) { abort \"Unsafe Argus installation path: $($folder.FullName)\" }",
+            "}",
+            "$registry = [Microsoft.Win32.RegistryKey]::OpenBaseKey('LocalMachine', 'Registry64')",
+            "$key = 'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Argus'",
+            "$entry = $registry.OpenSubKey($key)",
+            "$location = if ($entry) { ([string]$entry.GetValue('InstallLocation')).Trim([char]34) }",
+            "$allowed = @('argus.exe', 'uninstall.exe', 'argus-setup.exe', 'scoop-manifest.json', 'scoop-install.json', 'manifest.json', 'install.json')",
+            "$files = @(Get-ChildItem -LiteralPath $target -Force -ErrorAction Stop)",
+            "if ($files | Where-Object { $_.PSIsContainer -or ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -or $_.Name -notin $allowed }) { abort 'Unexpected contents in the Argus version directory. Inspect it before continuing.' }",
             "$uninstall = Join-Path $target 'uninstall.exe'",
-            "if (Test-Path -LiteralPath $uninstall -PathType Leaf) {",
-            "    $keys = @('HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Argus', 'HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Argus')",
-            "    $location = $keys | ForEach-Object { Get-ItemPropertyValue -LiteralPath $_ -Name InstallLocation -ErrorAction SilentlyContinue } | Where-Object { $_ -and $_.Trim([char]34) -eq $target }",
-            "    if (!$location) { abort 'The Windows uninstall entry does not match the Scoop-managed Argus path.' }",
-            "    if ((Get-Item -LiteralPath $target -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { abort 'The Argus installation path is a reparse point.' }",
-            "    if ((Get-Item -LiteralPath $uninstall -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { abort 'The Argus uninstaller is a reparse point.' }",
-            "    $result = Start-Process -FilePath $uninstall -ArgumentList '/S' -Wait -PassThru",
-            "    if ($result.ExitCode -ne 0 -or (Test-Path -LiteralPath (Join-Path $target 'argus.exe'))) { abort \"Argus uninstall did not complete (exit code: $($result.ExitCode)).\" }",
-            "} elseif (Test-Path -LiteralPath (Join-Path $target 'argus.exe')) {",
-            "    abort 'Argus is present but its uninstaller is missing. Repair the installation before continuing.'",
-            "}"
+            "$main = Join-Path $target 'argus.exe'",
+            "if ($location -ne $target -and !(Test-Path -LiteralPath $main) -and !(Test-Path -LiteralPath $uninstall)) { return }",
+            "$registeredUninstaller = if ($entry) { ([string]$entry.GetValue('UninstallString')).Trim([char]34) }",
+            "if ($location -ne $target -or $registeredUninstaller -ne $uninstall -or $entry.GetValue('DisplayVersion') -ne $Manifest.version -or !(Test-Path -LiteralPath $uninstall -PathType Leaf)) { abort 'The Windows uninstall entry does not match this Scoop Argus installation.' }",
+            "# In-place update mode skips Argus's shared system-integration cleanup. Scoop removes the remaining files.",
+            "$result = Start-Process -FilePath $uninstall -ArgumentList \"/S /UPDATE _?=$target\" -Wait -PassThru -ErrorAction Stop",
+            "if ($result.ExitCode -ne 0 -or (Test-Path -LiteralPath $main) -or $registry.OpenSubKey($key)) { abort \"Argus uninstall did not complete (exit code: $($result.ExitCode)).\" }"
         ]
     },
+    "shortcuts": [
+        [
+            "argus.exe",
+            "Argus (Setup)"
+        ]
+    ],
     "notes": [
-        "在管理员 PowerShell 中安装、升级和卸载。安装位置为 Program Files\\Argus，启动入口由官方安装程序创建。",
-        "安装版与便携版共用用户配置和历史记录，无需配置 Scoop persist。请先退出 Argus 再升级或卸载。",
-        "Scoop 升级会运行官方卸载程序后再安装新版本。建议关闭 Argus 应用内自动更新，统一用 Scoop 升级。"
+        "请用管理员 PowerShell 安装、升级和卸载。主程序装在 Scoop 的版本目录，从开始菜单打开 Argus (Setup)。",
+        "如果旧清单已把 Argus 装到 Program Files，请先卸载旧版并保留用户数据，再重新安装。",
+        "建议关闭 Argus 应用内自动更新，统一使用 Scoop 升级。升级或卸载前请从托盘退出 Argus。",
+        "卸载前请在 Argus 设置中关闭并移除已启用的开机启动、特权服务、PawnIO 或任务管理器替换。Scoop 的卸载步骤保留共享系统集成和用户数据。"
     ],
     "post_uninstall": [
         "if (-not ((Get-PSCallStack).ScriptName -match '[\\\\/]scoop-uninstall\\.ps1$')) { return }",
         "Write-Warning 'Argus 会保留用户设置、日志和历史记录。两个版本共用数据，请在两个版本都不再使用时备份后手动清理。'",
         "Write-Host '  检查 %APPDATA%\\dev.argus.taskmanager 和 %LOCALAPPDATA%\\dev.argus.taskmanager'",
-        "Write-Host '  如改过历史记录位置，请另外检查自定义目录。'"
+        "Write-Host '  如改过历史记录位置，请另外检查自定义目录。'",
+        "Write-Host '  如 HKLM\\SOFTWARE\\Argus contributors\\Argus 注册表项已无安装实例使用，可备份后手动清理保存的上次安装路径。'"
     ],
     "checkver": {
         "github": "https://github.com/Ray-lea/Argus"
