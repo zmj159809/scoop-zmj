@@ -32,3 +32,13 @@
 
 - **README 结构**：按「仓库目录」「脚本清单与用法」「Scoop Bucket」组织。目录章节说明主要目录与关键文件，脚本章节说明用途、运行命令、前置条件与参数，Bucket 章节说明订阅方式、已收录软件汇总表和各软件包的使用方法。保留有效的链接、示例和注意事项，命令、参数和路径以核对结果为准。
 - **脚本与本地文件**：`scripts/` 下的脚本面向 PowerShell 7（`#Requires -Version 7.0`），改动脚本用法或参数时同步更新 README 的「脚本清单与用法」。`update-log.txt` 为本地更新日志（已加入 `.gitignore`），不纳入提交。
+
+## Git 提交规范
+
+- 手动提交采用 Conventional Commits 风格，标题同时包含中文与英文摘要：`<type>(<scope>): <中文摘要> / <English summary>`（`<scope>` 可选，常用包名、`bucket`、`scripts`、`templates`、`docs`、`ci`）。
+- 常用 `<type>`：`feat`（新增功能或软件清单）、`fix`（修复问题）、`docs`（文档更新）、`refactor`（重构）、`chore`（维护与配置）、`ci`（工作流变更）。
+- 示例：
+  - `feat(bucket): 新增 ripgrep 软件清单 / add ripgrep manifest`
+  - `fix(scripts): 修复 x86-64 架构识别问题 / fix x86-64 architecture detection`
+  - `docs: 补充 Git 提交信息规范 / add commit message convention`
+- GitHub Actions（Excavator）生成的自动更新提交沿用官方 Action 格式。
