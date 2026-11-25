@@ -1,16 +1,16 @@
 {
-    "version": "1.3.7",
+    "version": "1.3.8",
     "description": "Third-party NetEase Cloud Music desktop client with a native Go UI (no webview)",
     "homepage": "https://github.com/nya-owo/cloudy",
     "license": "AGPL-3.0",
     "architecture": {
         "64bit": {
-            "url": "https://github.com/nya-owo/cloudy/releases/download/v1.3.7/cloudy-1.3.7-windows-amd64.tar.gz",
-            "hash": "cd6098e1a35fb3eee8732af4fcc55b0dbc6a1c152442d2698fd63425793c45af"
+            "url": "https://github.com/nya-owo/cloudy/releases/download/v1.3.8/cloudy-1.3.8-windows-amd64.tar.gz",
+            "hash": "28d1be755636a696fd332f246f4afe8805fa9901845638ab3f7211886c442231"
         },
         "arm64": {
-            "url": "https://github.com/nya-owo/cloudy/releases/download/v1.3.7/cloudy-1.3.7-windows-arm64.tar.gz",
-            "hash": "d152c86532751e2f68ae7e4118eb845a7a4c591b3ff0f883a56c786644a192c7"
+            "url": "https://github.com/nya-owo/cloudy/releases/download/v1.3.8/cloudy-1.3.8-windows-arm64.tar.gz",
+            "hash": "920a82e83283fcb3c5030b1c50b410d41ef0d5b76746bad1e9e5c61e208f605e"
         }
     },
     "bin": "Cloudy.exe",
