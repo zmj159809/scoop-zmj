@@ -106,6 +106,7 @@ scoop update niubash  # 更新已安装的 niubash
 | [`argus`](#argus) | x64 | Windows 任务管理器，便携版 | [清单](bucket/argus.json) |
 | [`argus-setup`](#argus-setup) | x64 | Windows 任务管理器，官方全用户安装版 | [清单](bucket/argus-setup.json) |
 | [`cloudy`](#cloudy) | x64 / ARM64 | 第三方网易云音乐桌面客户端 | [清单](bucket/cloudy.json) |
+| [`codex-proxy-rs`](#codex-proxy-rs) | x64 / ARM64 | 面向 Codex 的自托管多账号 AI 透明代理网关 | [清单](bucket/codex-proxy-rs.json) |
 | [`niubash`](#niubash) | x64 / ARM64 | Windows 原生 Bash 兼容 Shell | [清单](bucket/niubash.json) |
 
 以下文件残留说明来自现有清单及其卸载脚本。`%APPDATA%`、`%LOCALAPPDATA%` 和 `%USERPROFILE%` 通常在 C 盘，实际位置以当前账户和软件配置为准。`scoop uninstall --purge <包名>` 清理 Scoop 管理的持久化数据。应用自行保存的数据按下列条目检查。当前清单带有卸载提醒，使用旧清单安装的版本可能要在升级或重装后才会显示提醒。
@@ -190,6 +191,36 @@ scoop uninstall cloudy
 - **C 盘文件 · 已确认有残留（使用中产生的数据）**。清单提示检查 `%APPDATA%\Cloudy` 的设置和播放数据、`%LOCALAPPDATA%\Cloudy` 的默认缓存，以及自定义缓存和下载目录。
 - **注册表 · 尚未验证**。此清单使用便携更新包。登录凭据由系统保存，需要清除时请在卸载前从 Cloudy 退出账号。
 - 确认文件不再需要后，记得先备份设置和需要保留的下载歌曲，再手动清理。
+
+#### codex-proxy-rs
+
+[Codex Proxy RS](https://github.com/zyycn/codex-proxy-rs) 是基于 Rust 的自托管多账号 AI 透明代理网关，支持 OpenAI Responses、Chat Completions 和 Anthropic Messages 协议，内置多账号调度、限额与用量统计管理端。
+
+```powershell
+scoop install my/codex-proxy-rs
+notepad "$(scoop prefix codex-proxy-rs)\..\..\persist\codex-proxy-rs\deploy\config.yaml"
+Set-Location (scoop prefix codex-proxy-rs)
+codex-proxy-rs serve
+scoop update codex-proxy-rs
+```
+
+启动前编辑 `deploy\config.yaml`，填写 `store.database`、`store.redis` 的连接地址与独立密码，以及 `admin.default_password`。在安装目录执行 `codex-proxy-rs serve` 启动后，默认可通过 `http://127.0.0.1:8080` 打开管理端（默认账号 `admin@cpr.local`），按 `Ctrl+C` 停止服务。
+
+**备注**
+
+- 运行前需准备可访问的 PostgreSQL（最低版本 16）和 Redis；若使用管理端的数据库备份功能，还需将匹配服务端版本的 `pg_dump` 加入 `PATH`。常规安装无需管理员权限，上游二进制未做代码签名，首次运行可能显示 SmartScreen 提示，请先核对软件来源。
+- 后端从当前工作目录向上查找 `deploy/config.yaml`，并依赖包内的 `web/dist` 与 `plugins/official` 目录结构，因此请切换到 `$(scoop prefix codex-proxy-rs)` 后再启动。清单在首次安装时自动从 `deploy\config.example.yaml` 生成初始 `deploy\config.yaml`（已将 `api.asset_directory` 设为 `'../web/dist'`），并通过 `persist` 持久化 `deploy/config.yaml` 与 `.runtime`。若编辑器保存时采用替换文件方式导致单文件硬链接断开，可直接编辑 `<Scoop 根目录>\persist\codex-proxy-rs\deploy\config.yaml` 并运行 `scoop reset codex-proxy-rs` 恢复链接。
+- 建议不要使用管理端的在线更新功能，以免直接改写版本目录文件而绕过 Scoop 版本管理；升级前先按 `Ctrl+C` 停止服务，再运行 `scoop update codex-proxy-rs`，并对照新版本的 `deploy\config.example.yaml` 合并新增字段。
+
+**卸载与残留**
+
+```powershell
+scoop uninstall codex-proxy-rs
+```
+
+- **C 盘文件 · 经核对未发现**。核对上游 [部署与运维文档](https://github.com/zyycn/codex-proxy-rs/blob/v3.55.2/deploy/README.md) 及本地启动行为，程序不在 `%APPDATA%` 或 `%LOCALAPPDATA%` 创建目录，仅读写工作目录下的 `deploy\config.yaml` 与 `.runtime`（含 `data` 下的会话锚点密钥、更新状态、备份暂存区，以及 `logs` 下的应用日志、按需开启的 OAuth 恢复记录与请求转储）。常规卸载默认保留 `<Scoop 根目录>\persist\codex-proxy-rs`（Scoop 装在默认路径 `%USERPROFILE%\scoop` 时位于 C 盘，装在其他盘时位于对应盘符；可用 `scoop uninstall --purge codex-proxy-rs` 清理）。若曾在自定义工作目录运行或修改过 `runtime_data_dir` 与日志路径，对应目录也会保留。
+- **注册表 · 经核对未发现**。清单使用上游便携 `tar.gz` 归档，不执行安装器也不注册系统服务；核查清单与可执行文件仅见读取系统代理设置（`Internet Settings`），未发现应用专用的注册表写入项。
+- 账号、客户端密钥、用量记录与插件状态保存在外部 PostgreSQL，协调状态保存在 Redis；若曾手动修改 `%USERPROFILE%\.codex\config.toml`（或 `CODEX_HOME`）接入本地网关，或将管理端安装为浏览器 PWA，卸载后也不会自动改动。确认无其他安装实例在用且不再需要后，请先备份 `deploy\config.yaml`、`.runtime` 日志与数据库内容，再手动清理对应目录和数据，并按需还原客户端配置。
 
 #### niubash
 

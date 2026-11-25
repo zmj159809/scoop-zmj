@@ -1,0 +1,60 @@
+{
+    "version": "3.55.2",
+    "description": "Self-hosted multi-account AI proxy gateway for Codex, written in Rust",
+    "homepage": "https://github.com/zyycn/codex-proxy-rs",
+    "license": "Apache-2.0",
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/zyycn/codex-proxy-rs/releases/download/v3.55.2/codex-proxy-rs_3.55.2_windows_amd64.tar.gz",
+            "hash": "47bf59120c23c2e038c9a33458c022e351c07f506e2d974e8dc659c0c50cb3e8",
+            "extract_dir": "codex-proxy-rs"
+        },
+        "arm64": {
+            "url": "https://github.com/zyycn/codex-proxy-rs/releases/download/v3.55.2/codex-proxy-rs_3.55.2_windows_arm64.tar.gz",
+            "hash": "aae36e6876bb143d0cc153ce10c79623292b7be0c1ccb544155a8aec7ed1a8d0",
+            "extract_dir": "codex-proxy-rs"
+        }
+    },
+    "pre_install": [
+        "$persistedConfig = Join-Path $persist_dir 'deploy\\config.yaml'",
+        "$bundledConfig = Join-Path $dir 'deploy\\config.yaml'",
+        "if (!(Test-Path -LiteralPath $persistedConfig) -and !(Test-Path -LiteralPath $bundledConfig)) {",
+        "    $template = [IO.File]::ReadAllText((Join-Path $dir 'deploy\\config.example.yaml'), [Text.UTF8Encoding]::new($false))",
+        "    $template = $template -replace \"(?m)^(\\s*asset_directory:\\s*)'\\.\\./frontend/dist'\", \"`$1'../web/dist'\"",
+        "    [IO.File]::WriteAllText($bundledConfig, $template, [Text.UTF8Encoding]::new($false))",
+        "}"
+    ],
+    "bin": "codex-proxy-rs.exe",
+    "persist": [
+        ".runtime",
+        "deploy/config.yaml"
+    ],
+    "notes": [
+        "运行前需准备可访问的 PostgreSQL（最低 16）和 Redis。若使用数据库备份功能，还需将匹配服务端版本的 pg_dump 加入 PATH。",
+        "首次安装已从模板生成 deploy\\config.yaml 并将 api.asset_directory 设为 ../web/dist。启动前请编辑 <Scoop 根目录>\\persist\\codex-proxy-rs\\deploy\\config.yaml，填写 store.database、store.redis 密码与 admin.default_password。",
+        "后端从当前工作目录向上查找 deploy/config.yaml。请先执行 Set-Location (scoop prefix codex-proxy-rs)，再运行 codex-proxy-rs serve（默认监听 http://127.0.0.1:8080）。",
+        "建议不要使用管理端在线更新，避免直接替换版本目录文件；升级前按 Ctrl+C 停止服务，统一通过 scoop update codex-proxy-rs 更新，并对照新版本的 deploy\\config.example.yaml 合并新增配置项。",
+        "上游二进制未做代码签名，首次运行可能出现 SmartScreen 提示。"
+    ],
+    "post_uninstall": [
+        "if (-not ((Get-PSCallStack).ScriptName -match '[\\\\/]scoop-uninstall\\.ps1$')) { return }",
+        "Write-Warning 'codex-proxy-rs 的持久化配置、运行数据与外部数据库内容不会随常规卸载自动清除。确认无其他实例在用且不再需要后，请先备份再手动清理。'",
+        "Write-Host '  检查 Scoop 持久化目录 <Scoop 根目录>\\persist\\codex-proxy-rs 下的 deploy\\config.yaml 和 .runtime（含会话锚点与日志，可用 scoop uninstall --purge codex-proxy-rs 清理）。'",
+        "Write-Host '  如曾在自定义工作目录运行或改过日志/数据路径，请检查对应目录；同时按需备份并清理外部 PostgreSQL、Redis 数据，以及手动修改过的 %USERPROFILE%\\.codex\\config.toml。'"
+    ],
+    "checkver": {
+        "github": "https://github.com/zyycn/codex-proxy-rs"
+    },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/zyycn/codex-proxy-rs/releases/download/v$version/codex-proxy-rs_$version_windows_amd64.tar.gz",
+                "extract_dir": "codex-proxy-rs"
+            },
+            "arm64": {
+                "url": "https://github.com/zyycn/codex-proxy-rs/releases/download/v$version/codex-proxy-rs_$version_windows_arm64.tar.gz",
+                "extract_dir": "codex-proxy-rs"
+            }
+        }
+    }
+}
