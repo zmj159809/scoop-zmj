@@ -17,6 +17,7 @@ scoop install my/niubash
 
 ```text
 bucket/                         正式软件清单，每个软件一个 JSON
+  argus.json                    Argus（Windows 任务管理器）
   cloudy.json                   Cloudy（网易云音乐第三方客户端）
   niubash.json                  niubash（Bash for Windows）
 templates/portable.json         便携版 ZIP 模板（不会被 Scoop 当成软件）
@@ -336,8 +337,38 @@ scoop update niubash  # 升级已安装的软件
 
 | 清单 | 软件 | 架构 | 说明 |
 | --- | --- | --- | --- |
+| [`bucket/argus.json`](bucket/argus.json) | [Argus](https://github.com/Ray-lea/Argus) | 64bit | 原生 Windows 任务管理器；当前上游 Release 仅提供 x64 便携版 |
 | [`bucket/cloudy.json`](bucket/cloudy.json) | [cloudy](https://github.com/nya-owo/cloudy) | 64bit / arm64 | 网易云音乐第三方客户端，Go 原生界面，自带应用内更新 |
 | [`bucket/niubash.json`](bucket/niubash.json) | [niubash](https://github.com/unixwin/niubash) | 64bit / arm64 | 原生 Windows Bash 兼容 shell，命令名 `niu` |
+
+### Argus
+
+[Argus](https://github.com/Ray-lea/Argus) 是原生 Windows 任务管理器，提供进程、性能、历史记录、文件锁、网络连接、服务和启动项管理，并可在托盘、桌面或任务栏显示监控信息。
+
+**安装**
+
+```powershell
+scoop update
+scoop install my/argus
+```
+
+也可以从开始菜单打开「Argus」，或运行 `argus` 启动。默认快捷键 `Ctrl+Alt+Esc` 可显示或隐藏窗口。
+
+**注意事项**
+
+- 当前清单使用 v0.6.0 的 x64 便携版单文件，不运行上游安装器；清单会随上游发布更新。上游 README 提到 ARM64 支持，但该版本 Release 没有 ARM64 资产，因此目前仅配置 64bit。Windows ARM64 上可能可通过 x64 模拟运行，尚未作为原生 ARM64 清单验证。
+- 要求 Windows 10 22H2（build 19045）或 Windows 11，以及支持 DirectX 11 的显卡。
+- 便携版与安装版共用用户设置和历史记录。建议统一通过 `scoop update argus` 更新；它不会自动安装可选的特权服务/PawnIO，也不会替用户开启任务管理器替换。若你在应用内自行启用了特权服务或任务管理器替换，卸载前先在 Argus 设置中关闭并移除，避免留下 Scoop 之外管理的组件。
+- 若升级后 Argus 的特权服务副本未同步，可在「设置 → 权限 → 特权服务」中更新服务。
+
+**升级**
+
+```powershell
+scoop update
+scoop update argus
+```
+
+清单使用 `checkver` 和 x64 `autoupdate`，Excavator 会按 `Argus_$version_x64.exe` 规则更新版本、下载地址和 SHA256。下载 URL 的 `#/argus.exe` 仅用于让 Scoop 固定安装后的文件名，并非上游 URL 的一部分。
 
 ### niubash
 

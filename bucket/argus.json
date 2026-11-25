@@ -1,0 +1,34 @@
+{
+    "version": "0.6.0",
+    "description": "Native Windows task manager with process, performance, services, startup, and network monitoring",
+    "homepage": "https://github.com/Ray-lea/Argus",
+    "license": "AGPL-3.0-or-later",
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/Ray-lea/Argus/releases/download/v0.6.0/Argus_0.6.0_x64.exe#/argus.exe",
+            "hash": "1fbd14fdd689d8a17cb7dc629d0041471626681599af016bca5892573f80c4d6"
+        }
+    },
+    "bin": "argus.exe",
+    "shortcuts": [
+        [
+            "argus.exe",
+            "Argus"
+        ]
+    ],
+    "notes": [
+        "此清单使用上游 x64 便携版单文件，不运行安装器，也不自动安装特权服务或修改任务管理器替换设置。",
+        "需要 Windows 10 22H2（build 19045）或 Windows 11，并支持 DirectX 11 的显卡。上游当前未发布原生 ARM64 包；ARM64 Windows 上的运行依赖 x64 模拟支持。",
+        "如在 Argus 中手动启用了特权服务、PawnIO 或任务管理器替换，卸载前请先在 Argus 设置中关闭并移除这些功能；升级后如特权服务副本未同步，请在 设置 → 权限 → 特权服务 中更新服务。"
+    ],
+    "checkver": {
+        "github": "https://github.com/Ray-lea/Argus"
+    },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/Ray-lea/Argus/releases/download/v$version/Argus_$version_x64.exe#/argus.exe"
+            }
+        }
+    }
+}
