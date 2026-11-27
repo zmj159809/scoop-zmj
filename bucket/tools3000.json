@@ -9,17 +9,24 @@
             "hash": "fd3707dd631d1b248ea349341632a044c2e8b1a5eb18ee916e4bcb1edc6abb72"
         }
     },
+    "pre_install": [
+        "$realExe = Join-Path $dir 'Tools3000.exe'",
+        "[IO.File]::WriteAllText((Join-Path $dir 'launch.vbs'), ('CreateObject(\"WScript.Shell\").Run \"\"\"' + $realExe + '\"\"\", 1, False'), [Text.UTF8Encoding]::new($false))",
+        "[IO.File]::WriteAllText((Join-Path $dir 'tools3000.cmd'), (\"@echo off`r`nstart `\"`\" `\"$realExe`\" %*`r`n\"), [Text.UTF8Encoding]::new($false))"
+    ],
     "bin": [
         [
-            "Tools3000.exe",
+            "tools3000.cmd",
             "tools3000"
         ],
         "tools3000-cli.exe"
     ],
     "shortcuts": [
         [
-            "Tools3000.exe",
-            "Tools3000"
+            "launch.vbs",
+            "Tools3000",
+            "",
+            "Tools3000.exe"
         ]
     ],
     "persist": ".tools3000",
