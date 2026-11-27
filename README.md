@@ -108,6 +108,7 @@ scoop update niubash  # 更新已安装的 niubash
 | [`cloudy`](#cloudy) | x64 / ARM64 | 第三方网易云音乐桌面客户端 | [清单](bucket/cloudy.json) |
 | [`codex-proxy-rs`](#codex-proxy-rs) | x64 / ARM64 | 面向 Codex 的自托管多账号 AI 透明代理网关 | [清单](bucket/codex-proxy-rs.json) |
 | [`niubash`](#niubash) | x64 / ARM64 | Windows 原生 Bash 兼容 Shell | [清单](bucket/niubash.json) |
+| [`tools3000`](#tools3000) | x64 | 轻量原生 Windows 桌面效率工具集，便携版 | [清单](bucket/tools3000.json) |
 
 以下文件残留说明来自现有清单及其卸载脚本。`%APPDATA%`、`%LOCALAPPDATA%` 和 `%USERPROFILE%` 通常在 C 盘，实际位置以当前账户和软件配置为准。`scoop uninstall --purge <包名>` 清理 Scoop 管理的持久化数据。应用自行保存的数据按下列条目检查。当前清单带有卸载提醒，使用旧清单安装的版本可能要在升级或重装后才会显示提醒。
 
@@ -251,6 +252,33 @@ scoop uninstall niubash
 - **C 盘文件 · 已确认有残留（使用中产生的数据）**。清单提示检查 niubash 主目录（默认通常是 `%USERPROFILE%`）下的 `.niubashrc`、`.niubash_history` 和 `.niubash` 目录。设置了 `HISTFILE` 时也检查自定义历史文件。
 - **注册表 · 尚未验证**。清单未定义应用专用的注册表清理操作。
 - 确认配置和命令历史不再需要后，记得先备份，再手动删除。
+
+#### tools3000
+
+[Tools3000](https://github.com/yuan278501381/Tools3000) 是基于 C++20 与 Rust 的轻量原生 Windows 桌面效率工具集，集成文件/应用/书签即时搜索、空格预览、剪贴板历史、文本扩展、文件锁定解锁、滚动截图与离线 OCR、自动缩放录屏、全局鼠标手势和 Picasa 风格看图等功能。
+
+```powershell
+scoop install my/tools3000
+scoop update tools3000
+```
+
+从开始菜单打开「Tools3000」或运行 `tools3000`，也可在终端使用 `tools3000-cli`。
+
+**备注**
+
+- 要求 Windows 10 / 11 / Server（x64），界面依赖系统 Microsoft Edge WebView2 Runtime。
+- 上游便携压缩包内置 `portable.flag`，且清单通过 `persist` 同时持久化 `data` 与 `.tools3000` 目录（位于 `<Scoop 根目录>\persist\tools3000`）。`config.json`、日志、统计数据、剪贴板历史、离线 OCR 模型与 WebView2 运行数据均保存在持久化目录中，不会写入系统用户目录，升级时自动保留。
+- 建议关闭应用内自动更新，统一通过 `scoop update tools3000` 升级。首次运行若出现 SmartScreen 提示，请先核对软件来源。
+
+**卸载与残留**
+
+```powershell
+scoop uninstall tools3000
+```
+
+- **C 盘文件 · 经核对未发现（便携模式下）**。核对上游文档与便携包结构，便携模式仅读写程序目录下的持久化数据目录，不写入 `%LOCALAPPDATA%\Tools3000`。常规卸载默认保留 `<Scoop 根目录>\persist\tools3000`（Scoop 装在默认路径 `%USERPROFILE%\scoop` 时位于 C 盘，装在其他盘时位于对应盘符；可用 `scoop uninstall --purge tools3000` 清理）。若曾在非便携模式下运行过独立版本，也请检查 `%LOCALAPPDATA%\Tools3000`。
+- **注册表 · 尚未验证**。便携清单不执行官方安装程序，也不主动写入安装器注册表项；但若在软件设置中手动开启了开机自启或 File Locksmith 右键菜单等系统集成，卸载前请先在应用设置中关闭。
+- 确认无其他安装实例在用且数据不再需要后，请先备份配置、剪贴板与统计数据，再手动清理上述目录。
 
 ### 添加软件与发布
 
