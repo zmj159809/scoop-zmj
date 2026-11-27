@@ -22,20 +22,20 @@
             "Tools3000"
         ]
     ],
-    "persist": [
-        "data",
-        ".tools3000"
-    ],
+    "persist": ".tools3000",
+    "env_set": {
+        "TOOLS3000_DATA_ROOT": "$persist_dir\\.tools3000"
+    },
     "notes": [
         "要求 Windows 10 / 11 / Server（x64），界面依赖系统 Microsoft Edge WebView2 Runtime。",
-        "便携包内置 portable.flag，且清单已通过 persist 持久化 data 与 .tools3000 目录（位于 <Scoop 根目录>\\persist\\tools3000），config.json、日志、统计与 WebView2 运行数据不会写入系统用户目录。",
+        "由于 Tools3000 的原子写盘逻辑会拒绝包含目录联接（Junction）的路径，清单已通过 env_set 将 TOOLS3000_DATA_ROOT 设为 $persist_dir\\.tools3000，使 config.json、日志、统计与 WebView2 运行数据直接写入真实持久化路径而不写入系统用户目录。若在安装前已打开终端，请新开终端或重新登录以使环境变量生效。",
         "建议关闭应用内自动更新，统一通过 scoop update tools3000 升级。",
         "首次运行若出现 SmartScreen 提示，请先核对软件来源。"
     ],
     "post_uninstall": [
         "if (-not ((Get-PSCallStack).ScriptName -match '[\\\\/]scoop-uninstall\\.ps1$')) { return }",
         "Write-Warning 'Tools3000 的持久化数据不会随常规卸载自动清除。确认无其他实例在用且不再需要后，请先备份再手动清理。'",
-        "Write-Host '  检查 Scoop 持久化目录 <Scoop 根目录>\\persist\\tools3000 下的 data 与 .tools3000（含 config.json、日志、统计、剪贴板、OCR 模型与 WebView2 数据，可用 scoop uninstall --purge tools3000 清理）。'",
+        "Write-Host '  检查 Scoop 持久化目录 <Scoop 根目录>\\persist\\tools3000 下的 .tools3000（含 config.json、日志、统计、剪贴板、OCR 模型与 WebView2 数据，可用 scoop uninstall --purge tools3000 清理）。'",
         "Write-Host '  若曾在非便携模式下运行，请检查 %LOCALAPPDATA%\\Tools3000；若曾开启开机自启或 File Locksmith 右键菜单，请在卸载前从软件设置中关闭。'"
     ],
     "checkver": {

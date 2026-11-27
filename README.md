@@ -267,7 +267,7 @@ scoop update tools3000
 **备注**
 
 - 要求 Windows 10 / 11 / Server（x64），界面依赖系统 Microsoft Edge WebView2 Runtime。
-- 上游便携压缩包内置 `portable.flag`，且清单通过 `persist` 同时持久化 `data` 与 `.tools3000` 目录（位于 `<Scoop 根目录>\persist\tools3000`）。`config.json`、日志、统计数据、剪贴板历史、离线 OCR 模型与 WebView2 运行数据均保存在持久化目录中，不会写入系统用户目录，升级时自动保留。
+- 由于 Tools3000 的原子写盘逻辑会拒绝包含目录联接（Junction）的路径，清单通过 `persist` 管理 `.tools3000` 并通过 `env_set` 将环境变量 `TOOLS3000_DATA_ROOT` 设为 `<Scoop 根目录>\persist\tools3000\.tools3000` 这一真实物理路径，使 `config.json`、日志、统计数据、剪贴板历史、离线 OCR 模型与 WebView2 运行数据直接写入持久化目录，既避免目录联接拦截，也不写入系统用户目录。若在安装前已打开终端，请新开终端后再启动以使环境变量生效。
 - 建议关闭应用内自动更新，统一通过 `scoop update tools3000` 升级。首次运行若出现 SmartScreen 提示，请先核对软件来源。
 
 **卸载与残留**
