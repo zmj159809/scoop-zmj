@@ -1,17 +1,17 @@
 {
-    "version": "3.57.1",
+    "version": "3.57.2",
     "description": "Self-hosted multi-account AI proxy gateway for Codex, written in Rust",
     "homepage": "https://github.com/zyycn/codex-proxy-rs",
     "license": "Apache-2.0",
     "architecture": {
         "64bit": {
-            "url": "https://github.com/zyycn/codex-proxy-rs/releases/download/v3.57.1/codex-proxy-rs_3.57.1_windows_amd64.tar.gz",
-            "hash": "a8695899636e2d4b5eeb7033fd25814d0ab6f54da14b942386d1bd656f52baec",
+            "url": "https://github.com/zyycn/codex-proxy-rs/releases/download/v3.57.2/codex-proxy-rs_3.57.2_windows_amd64.tar.gz",
+            "hash": "8a4332b4ba5e7d7ee606b70e4ff0ec4c3fcc9fbc8928dce70c2a40b6536a42a1",
             "extract_dir": "codex-proxy-rs"
         },
         "arm64": {
-            "url": "https://github.com/zyycn/codex-proxy-rs/releases/download/v3.57.1/codex-proxy-rs_3.57.1_windows_arm64.tar.gz",
-            "hash": "5872d930f24f718a273e10ab6ed8ca8c4ab513b8f0e183b25212471362fd9baf",
+            "url": "https://github.com/zyycn/codex-proxy-rs/releases/download/v3.57.2/codex-proxy-rs_3.57.2_windows_arm64.tar.gz",
+            "hash": "3f1f1d00904ea4dd767a620c9b157e2eabde8fe06e49ec1fff331db58f271085",
             "extract_dir": "codex-proxy-rs"
         }
     },
