@@ -1,0 +1,49 @@
+{
+    "version": "0.2.7",
+    "description": "Cross-platform terminal emulator written in Rust on GPUI and Ely components",
+    "homepage": "https://github.com/ELY-Open-Source/ELYTerminal",
+    "license": "MIT",
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/ELY-Open-Source/ELYTerminal/releases/download/v0.2.7/ELYTerminal-0.2.7-windows-x86_64.zip",
+            "hash": "ced1e24ba40de84676a2d93ba0baf2d85b7aa65489d51bac4f559d7b26cef2ad"
+        },
+        "arm64": {
+            "url": "https://github.com/ELY-Open-Source/ELYTerminal/releases/download/v0.2.7/ELYTerminal-0.2.7-windows-aarch64.zip",
+            "hash": "1cf5cb35cb5c4be642622ba9f9ef626939e19229a1253122ef0db5dd98a723a4"
+        }
+    },
+    "bin": "elyterminal.exe",
+    "shortcuts": [
+        [
+            "elyterminal.exe",
+            "ELYTerminal"
+        ]
+    ],
+    "notes": [
+        "要求 Windows 10 或更高版本（x64），或 Windows 11（ARM64）。",
+        "上游构建尚未代码签名，首次运行可能出现 SmartScreen 提示，请先核对软件来源。",
+        "建议在 设置 → 终端 中关闭「自动检查更新」，避免应用内更新覆盖 Scoop 管理的版本文件，统一通过 scoop update elyterminal 升级。",
+        "如需使用 elyterminal ctl 控制运行中的会话，请先在 设置 → 终端 开启「命令行控制」（Windows 发布版为 GUI 程序，执行 ctl 时请用管道或重定向接收输出）。若在设置中手动启用了「资源管理器菜单」或「默认终端」，卸载前请先在设置中移除或还原。"
+    ],
+    "post_uninstall": [
+        "if (-not ((Get-PSCallStack).ScriptName -match '[\\\\/]scoop-uninstall\\.ps1$')) { return }",
+        "Write-Warning 'ELYTerminal 的配置、会话和缓存文件可能仍在磁盘上。确认无其他安装实例在用且不再需要后，请先备份再手动清理。'",
+        "Write-Host '  检查 %APPDATA%\\ELYTerminal（含 settings.json、sessions.json 及开启命令行控制时的 control 文件）'",
+        "Write-Host '  检查 %LOCALAPPDATA%\\ELYTerminal（含 shell-integration 脚本与 updates 缓存）'",
+        "Write-Host '  若曾在设置中开启「资源管理器菜单」或「默认终端」但未在卸载前移除，请检查 HKCU\\Software\\Classes\\Directory\\shell\\ELYTerminal、HKCU\\Software\\Classes\\Directory\\Background\\shell\\ELYTerminal、HKCU\\Environment 的 Path 以及 HKCU\\Console\\%%Startup。'"
+    ],
+    "checkver": {
+        "github": "https://github.com/ELY-Open-Source/ELYTerminal"
+    },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/ELY-Open-Source/ELYTerminal/releases/download/v$version/ELYTerminal-$version-windows-x86_64.zip"
+            },
+            "arm64": {
+                "url": "https://github.com/ELY-Open-Source/ELYTerminal/releases/download/v$version/ELYTerminal-$version-windows-aarch64.zip"
+            }
+        }
+    }
+}

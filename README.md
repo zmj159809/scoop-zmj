@@ -107,6 +107,7 @@ scoop update niubash  # 更新已安装的 niubash
 | [`argus-setup`](#argus-setup) | x64 | Windows 任务管理器，官方全用户安装版 | [清单](bucket/argus-setup.json) |
 | [`cloudy`](#cloudy) | x64 / ARM64 | 第三方网易云音乐桌面客户端 | [清单](bucket/cloudy.json) |
 | [`codex-proxy-rs`](#codex-proxy-rs) | x64 / ARM64 | 面向 Codex 的自托管多账号 AI 透明代理网关 | [清单](bucket/codex-proxy-rs.json) |
+| [`elyterminal`](#elyterminal) | x64 / ARM64 | 基于 Rust、GPUI 与 Ely 组件的跨平台终端模拟器 | [清单](bucket/elyterminal.json) |
 | [`niubash`](#niubash) | x64 / ARM64 | Windows 原生 Bash 兼容 Shell | [清单](bucket/niubash.json) |
 | [`tools3000`](#tools3000) | x64 | 轻量原生 Windows 桌面效率工具集，便携版 | [清单](bucket/tools3000.json) |
 
@@ -222,6 +223,36 @@ scoop uninstall codex-proxy-rs
 - **C 盘文件 · 经核对未发现**。核对上游 [部署与运维文档](https://github.com/zyycn/codex-proxy-rs/blob/v3.55.2/deploy/README.md) 及本地启动行为，程序不在 `%APPDATA%` 或 `%LOCALAPPDATA%` 创建目录，仅读写工作目录下的 `deploy\config.yaml` 与 `.runtime`（含 `data` 下的会话锚点密钥、更新状态、备份暂存区，以及 `logs` 下的应用日志、按需开启的 OAuth 恢复记录与请求转储）。常规卸载默认保留 `<Scoop 根目录>\persist\codex-proxy-rs`（Scoop 装在默认路径 `%USERPROFILE%\scoop` 时位于 C 盘，装在其他盘时位于对应盘符；可用 `scoop uninstall --purge codex-proxy-rs` 清理）。若曾在自定义工作目录运行或修改过 `runtime_data_dir` 与日志路径，对应目录也会保留。
 - **注册表 · 经核对未发现**。清单使用上游便携 `tar.gz` 归档，不执行安装器也不注册系统服务；核查清单与可执行文件仅见读取系统代理设置（`Internet Settings`），未发现应用专用的注册表写入项。
 - 账号、客户端密钥、用量记录与插件状态保存在外部 PostgreSQL，协调状态保存在 Redis；若曾手动修改 `%USERPROFILE%\.codex\config.toml`（或 `CODEX_HOME`）接入本地网关，或将管理端安装为浏览器 PWA，卸载后也不会自动改动。确认无其他安装实例在用且不再需要后，请先备份 `deploy\config.yaml`、`.runtime` 日志与数据库内容，再手动清理对应目录和数据，并按需还原客户端配置。
+
+#### elyterminal
+
+[ELYTerminal](https://github.com/ELY-Open-Source/ELYTerminal) 是基于 Rust、GPUI 与 Ely 组件开发的跨平台终端模拟器，集成会话分组、分栏窗格、Shell 集成、文件树与 Git 面板，并支持 Kitty 图形协议及 `elyterminal ctl` 命令行控制。
+
+```powershell
+scoop install my/elyterminal
+elyterminal
+elyterminal -d D:\project
+scoop update elyterminal
+```
+
+从开始菜单打开「ELYTerminal」或运行 `elyterminal`。包内随附运行所需的 `conpty.dll`、`OpenConsole.exe` 与 `OpenConsoleProxy.dll`。
+
+**备注**
+
+- 要求 Windows 10 或更高版本（x64），或 Windows 11（ARM64）。上游构建未做代码签名，首次运行可能出现 SmartScreen 提示，请先核对软件来源。
+- 建议在「设置 → 终端」关闭「自动检查更新」，避免应用内更新直接替换 Scoop 版本目录中的文件，统一通过 `scoop update elyterminal` 升级。
+- 若需通过 `elyterminal ctl` 读取或控制运行中的会话，需在「设置 → 终端」开启「命令行控制」；由于 Windows 发布版为 GUI 子系统程序，调用 `elyterminal ctl` 时请配合管道或重定向查看输出（例如 `elyterminal ctl sessions | Out-Host`）。
+- 若在「设置 → 终端」手动启用了「资源管理器菜单」或「默认终端」，卸载或跨版本升级前建议先在应用设置中移除或还原。
+
+**卸载与残留**
+
+```powershell
+scoop uninstall elyterminal
+```
+
+- **C 盘文件 · 已确认有残留（根据上游源码与文档）**。程序在 `%APPDATA%\ELYTerminal` 保存 `settings.json`、`sessions.json`（以及开启命令行控制时写入的 `control` 端口/令牌文件），并在 `%LOCALAPPDATA%\ELYTerminal` 写入 `shell-integration` 集成脚本与 `updates` 更新下载缓存；这些数据在卸载后保留。
+- **注册表 · 已确认有残留（仅当在设置中手动启用系统集成时）**。便携 ZIP 清单不执行官方安装程序，默认不写入注册表；若曾在「设置 → 终端」手动添加「资源管理器菜单」，会写入 `HKCU\Software\Classes\Directory\shell\ELYTerminal`、`HKCU\Software\Classes\Directory\Background\shell\ELYTerminal` 并修改 `HKCU\Environment` 的 `Path`；若曾设为「默认终端」，会写入 `HKCU\Console\%%Startup`（`DelegationConsole`、`DelegationTerminal`）及 `HKCU\Software\Classes\CLSID` / `Interface` 下的相关 COM 注册项（可在设置中移除或还原）。
+- 确认无其他安装实例在用且配置与会话记录不再需要后，请先备份上述文件，再手动清理。
 
 #### niubash
 
